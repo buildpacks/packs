@@ -1,15 +1,16 @@
 FROM cloudfoundry/cflinuxfs2
 MAINTAINER Stephen Levine <stephen.levine@gmail.com>
 
-ENV \
-  GO_VERSION=1.9.4 \
-  DIEGO_VERSION=1.32.0
+ARG go_version=1.9.4
+ARG diego_version=1.32.0
+
+VOLUME /in /out
 
 RUN \
-  curl -L "https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xz && \
+  curl -L "https://storage.googleapis.com/golang/go${go_version}.linux-amd64.tar.gz" | tar -C /usr/local -xz && \
   git -C /tmp clone --single-branch https://github.com/cloudfoundry/diego-release && \
   cd /tmp/diego-release && \
-  git checkout "v${DIEGO_VERSION}" && \
+  git checkout "v${diego_version}" && \
   git submodule update --init --recursive \
     src/code.cloudfoundry.org/archiver \
     src/code.cloudfoundry.org/buildpackapplifecycle \
@@ -51,7 +52,15 @@ ENV VCAP_APPLICATION '{ \
     "space_id": "18300c1c-1aa4-4ae7-81e6-ae59c6cdbaf1" \
   }'
 
-RUN mkdir /tmp/app /tmp/cache
+RUN \
+  ln -s /in/app /tmp/app && \
+  ln -s /in/cache /tmp/cache
 
-ENTRYPOINT /tmp/lifecycle/builder
+ENTRYPOINT [
+  "/tmp/lifecycle/builder",
+  "-buildDir", "/in/app",
+  "-buildArtifactsCacheDir", "/in/cache",
+  "-outputDroplet", "/out/droplet.tgz",
+  "-outputBuildArtifactsCache", "/out/cache.tgz"
+]
 
