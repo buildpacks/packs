@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -euo pipefail
+
+name=${APP_NAME:-app}
+mem=${APP_MEM:-$(( $(</sys/fs/cgroup/memory/memory.limit_in_bytes) / 1024**2 ))}
+disk=${APP_DISK:-1024}
+fds=${APP_FDS:-$(ulimit -n)}
+version=$(</proc/sys/kernel/random/uuid)
+id=$(</proc/sys/kernel/random/uuid)
+space_id=$(</proc/sys/kernel/random/uuid)
+
+export CF_INSTANCE_ADDR=''
+export CF_INSTANCE_PORT=''
+export CF_INSTANCE_PORTS=[]
+
+export CF_STACK=${CF_STACK:-cflinuxfs2}
+export CF_INSTANCE_IP=${CF_INSTANCE_IP:-$(hostname -i)}
+export MEMORY_LIMIT=${mem}m
+
+export VCAP_SERVICES=${VCAP_SERVICES:-{}}
+read -r -d '' VCAP_APPLICATION <<EOF
+{
+  "application_id": "${id}",
+  "application_name": "${name}",
+  "application_version": "${version}",
+  "application_uris": ["${name}.local"],
+  "limits": {"disk": ${disk}, "fds": ${fds}, "mem": ${mem}},
+  "name": "${name}",
+  "space_id": "${space_id}",
+  "space_name": "${name}-space",
+  "uris": ["${name}.local"],
+  "version": "${version}"
+}
+EOF
+export VCAP_APPLICATION
+
+ln -sf /app /tmp/app
+ln -sf /cache /tmp/cache
+ln -sf /lifecycle /tmp/lifecycle
+ln -sf /dev/null /tmp/output-cache
+
+chown -R vcap:vcap /app /cache
+
+exec su vcap -p -c "exec /lifecycle/builder $@"
