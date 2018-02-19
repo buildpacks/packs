@@ -1,10 +1,12 @@
-FROM packs/cf2
+FROM packs/${stack}
 
+ARG stack
 ARG buildpacks
 
-RUN mkdir /app /cache /out /home/vcap/tmp /tmp/buildpacks
+RUN mkdir /app /cache /out /home/vcap/tmp
 
 RUN \
+  mkdir -p /tmp/buildpacks && \
   for buildpack in ${buildpacks}; do \
     name=$(echo "${buildpack}" | cut -f1 -d=) && \
     url=$(echo "${buildpack}" | cut -f2- -d=) && \
@@ -13,17 +15,14 @@ RUN \
     rm /tmp/buildpack.zip; \
   done
 
-COPY init /
-
-USER vcap
-
-ENV PATH=/usr/local/bin:/usr/bin:/bin LANG=en_US.UTF-8
+COPY builder /
 
 ENTRYPOINT [
-  "/init",
+  "/builder",
   "-buildDir", "/app",
   "-buildArtifactsCacheDir", "/cache",
   "-outputDroplet", "/out/droplet.tgz",
+  "-outputBuildArtifactsCache", "/dev/null",
   "-outputMetadata", "/out/metadata.json"
   "-skipDetect",
   "-buildpackOrder"

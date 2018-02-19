@@ -63,7 +63,7 @@ func New() (*App, error) {
 	return app, nil
 }
 
-func containerID() (string, error) {
+func containerIP() (string, error) {
 	ip, err := exec.Command("hostname", "-i").Output()
 	return strings.TrimSpace(string(ip)), err
 }
@@ -76,13 +76,10 @@ func uuid() (string, error) {
 func totalMem() (uint64, error) {
 	contents, err := ioutil.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	memBytes, err = strconv.ParseInt(strings.TrimSpace(string(contents)), "10", "64")
-	if err != nil {
-		return nil, err
-	}
-	return memBytes / 1024 / 1024
+	memBytes, err := strconv.ParseUint(strings.TrimSpace(string(contents)), 10, 64)
+	return memBytes / 1024 / 1024, err
 }
 
 func (a *App) Stage() []string {
@@ -94,19 +91,19 @@ func (a *App) Stage() []string {
 	limits := map[string]uint64{"disk": disk, "fds": fds, "mem": mem}
 
 	vcapApp, err := json.Marshal(&vcapApplication{
-		ApplicationID:      app.ID,
+		ApplicationID:      a.ID,
 		ApplicationName:    name,
 		ApplicationURIs:    []string{uri},
-		ApplicationVersion: app.Version,
+		ApplicationVersion: a.Version,
 		Limits:             limits,
 		Name:               name,
 		SpaceID:            a.SpaceID,
 		SpaceName:          fmt.Sprintf("%s-space", name),
 		URIs:               []string{uri},
-		Version:            app.Version,
+		Version:            a.Version,
 	})
 	if err != nil {
-		vcapApp = "{}"
+		vcapApp = []byte("{}")
 	}
 
 	sysEnv := map[string]string{
@@ -138,9 +135,9 @@ func env(key, val string) string {
 	return val
 }
 
-func envInt(key, val uint64) uint64 {
+func envInt(key string, val uint64) uint64 {
 	if v, ok := os.LookupEnv(key); ok {
-		if vInt, err = strconv.ParseInt(v, "10", "64"); err == nil {
+		if vInt, err := strconv.ParseUint(v, 10, 64); err == nil {
 			return vInt
 		}
 	}
