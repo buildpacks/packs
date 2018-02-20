@@ -2,43 +2,50 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 
-	cf2app "github.com/sclevine/packs/cf2/app"
+	bal "code.cloudfoundry.org/buildpackapplifecycle"
+	cfapp "github.com/sclevine/packs/cf/app"
 )
 
 const (
-	CodeEnvFailed = iota + 1
-	CodeSetupFailed
-	CodeBuildFailed
+	CodeFailedEnv = iota + 1
+	CodeFailedSetup
+	CodeFailedBuild
+	CodeInvalidArgs
 )
 
 func main() {
-	app, err := cf2app.New()
-	check(err, CodeEnvFailed, "build app env")
+	config := bal.NewLifecycleBuilderConfig(nil, false, false)
+	err := config.Parse(os.Args[1:])
+	check(err, CodeInvalidArgs, "invalid args")
 
-	symlink("/app", "/tmp/app")
-	symlink("/cache", "/tmp/cache")
-	symlink("/lifecycle", "/tmp/lifecycle")
-	for _, dir := range []string{
-		"/app",
-		"/cache",
-		"/out",
-		"/home/vcap/tmp",
-	} {
-		err := os.MkdirAll(dir, 0777)
-		check(err, CodeSetupFailed, "ensure directory", dir)
-		chownAll("vcap", "vcap", dir)
-	}
+	var (
+		appDir      = config.BuildDir()
+		cacheDir    = config.BuildArtifactsCacheDir()
+		dropletDir  = filepath.Dir(config.OutputDroplet())
+		metadataDir = filepath.Dir(config.OutputMetadata())
+	)
 
-	cmd := exec.Command("/lifecycle/bulider", os.Args[1:]...)
+	ensureDirs(appDir, cacheDir, dropletDir, metadataDir, "/home/vcap/tmp")
+	ensureLink(appDir, "/tmp/app")
+	ensureLink(cacheDir, "/tmp/cache")
+
+	setupBuildpacks("/buildpacks", config.BuildpackPath)
+
+	app, err := cfapp.New()
+	check(err, CodeFailedEnv, "build app env")
+
+	cmd := exec.Command("/lifecycle/builder", os.Args[1:]...)
 	cmd.Env = append(os.Environ(), app.Stage()...)
-	cmd.Dir = "/tmp/app"
+	cmd.Dir = appDir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -48,29 +55,63 @@ func main() {
 	cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid}
 
 	err = cmd.Run()
-	check(err, CodeBuildFailed, "failed to build")
+	check(err, CodeFailedBuild, "build")
 }
 
-func symlink(s, t string) {
+func ensureDirs(dirs ...string) {
+	for _, dir := range dirs {
+		err := os.MkdirAll(dir, 0777)
+		check(err, CodeFailedSetup, "ensure directory", dir)
+		chownAll("vcap", "vcap", dir)
+	}
+}
+
+func ensureLink(s, t string) {
 	if _, err := os.Stat(t); !os.IsNotExist(err) {
 		return
 	}
 	err := os.Symlink(s, t)
-	check(err, CodeSetupFailed, "symlink", s, "to", t)
+	check(err, CodeFailedSetup, "symlink", s, "to", t)
+}
+
+func setupBuildpacks(dir string, dest func(string) string) {
+	files, err := ioutil.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return
+	}
+	check(err, CodeFailedSetup, "setup buildpacks", dir)
+
+	for _, f := range files {
+		filename := f.Name()
+		ext := filepath.Ext(filename)
+		if strings.ToLower(ext) != ".zip" {
+			continue
+		}
+		zip := filepath.Join(dir, filename)
+		dst := dest(strings.TrimSuffix(filename, ext))
+		unzip(zip, dst)
+	}
+}
+
+func unzip(zip, dst string) {
+	err := os.MkdirAll(dst, 0777)
+	check(err, CodeFailedSetup, "ensure directory", dst)
+	err = exec.Command("unzip", "-qq", zip, "-d", dst).Run()
+	check(err, CodeFailedSetup, "unzip", zip, "to", dst)
 }
 
 func chownAll(user, group, path string) {
 	err := exec.Command("chown", "-R", user+":"+group, path).Run()
-	check(err, CodeSetupFailed, "chown", path, "to", user+"/"+group)
+	check(err, CodeFailedSetup, "chown", path, "to", user+"/"+group)
 }
 
 func userLookup(u string) (uid, gid uint32) {
 	usr, err := user.Lookup(u)
-	check(err, CodeSetupFailed, "find user", u)
+	check(err, CodeFailedSetup, "find user", u)
 	uid64, err := strconv.ParseUint(usr.Uid, 10, 32)
-	check(err, CodeSetupFailed, "parse uid", usr.Uid)
+	check(err, CodeFailedSetup, "parse uid", usr.Uid)
 	gid64, err := strconv.ParseUint(usr.Gid, 10, 32)
-	check(err, CodeSetupFailed, "parse gid", usr.Gid)
+	check(err, CodeFailedSetup, "parse gid", usr.Gid)
 	return uint32(uid64), uint32(gid64)
 }
 

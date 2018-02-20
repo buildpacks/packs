@@ -1,6 +1,6 @@
+ARG stack
 FROM cloudfoundry/${stack}
 
-ARG stack
 ARG go_version=1.9.4
 ARG diego_version=1.32.0
 

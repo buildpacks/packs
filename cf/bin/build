@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+cd $(dirname "${BASH_SOURCE[0]}")/..
+
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/build/builder github.com/sclevine/packs/cf/builder
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/launcher github.com/sclevine/packs/cf/launcher

@@ -29,14 +29,15 @@ type vcapApplication struct {
 }
 
 type App struct {
-	Name    string
-	ID      string
-	Mem     uint64
-	Disk    uint64
-	Fds     uint64
-	SpaceID string
-	Version string
-	IP      string
+	Name       string
+	Mem        uint64
+	Disk       uint64
+	Fds        uint64
+	ID         string
+	InstanceID string
+	SpaceID    string
+	Version    string
+	IP         string
 }
 
 func New() (*App, error) {
@@ -55,7 +56,7 @@ func New() (*App, error) {
 	if app.IP, err = containerIP(); err != nil {
 		return nil, err
 	}
-	for _, id := range []*string{&app.Version, &app.ID, &app.SpaceID} {
+	for _, id := range []*string{&app.ID, &app.InstanceID, &app.SpaceID, &app.Version} {
 		if *id, err = uuid(); err != nil {
 			return nil, err
 		}
@@ -82,13 +83,20 @@ func totalMem() (uint64, error) {
 	return memBytes / 1024 / 1024, err
 }
 
-func (a *App) Stage() []string {
-	name := env("PACK_APP_NAME", a.Name)
-	uri := env("PACK_APP_URI", name+".local")
+func (a *App) config() (name, uri string, limits map[string]uint64) {
+	name = env("PACK_APP_NAME", a.Name)
+	uri = env("PACK_APP_URI", name+".local")
+
 	disk := envInt("PACK_APP_DISK", a.Disk)
 	fds := envInt("PACK_APP_FDS", a.Fds)
 	mem := envInt("PACK_APP_MEM", a.Mem)
-	limits := map[string]uint64{"disk": disk, "fds": fds, "mem": mem}
+	limits = map[string]uint64{"disk": disk, "fds": fds, "mem": mem}
+
+	return name, uri, limits
+}
+
+func (a *App) Stage() []string {
+	name, uri, limits := a.config()
 
 	vcapApp, err := json.Marshal(&vcapApplication{
 		ApplicationID:      a.ID,
@@ -119,13 +127,66 @@ func (a *App) Stage() []string {
 		"CF_INSTANCE_PORT":  "",
 		"CF_INSTANCE_PORTS": "[]",
 		"CF_STACK":          "cflinuxfs2",
-		"MEMORY_LIMIT":      fmt.Sprintf("%dm", mem),
+		"MEMORY_LIMIT":      fmt.Sprintf("%dm", limits["mem"]),
 		"VCAP_APPLICATION":  string(vcapApp),
 		"VCAP_SERVICES":     "{}",
 	}
 	envOverride(appEnv)
 
 	return mapsToEnv(sysEnv, appEnv)
+}
+
+func (a *App) Launch() []string {
+	name, uri, limits := a.config()
+
+	vcapApp, err := json.Marshal(&vcapApplication{
+		ApplicationID:      a.ID,
+		ApplicationName:    name,
+		ApplicationURIs:    []string{uri},
+		ApplicationVersion: a.Version,
+		Host:               "0.0.0.0",
+		InstanceID:         a.InstanceID,
+		InstanceIndex:      uintPtr(0),
+		Limits:             limits,
+		Name:               name,
+		Port:               uintPtr(8080),
+		SpaceID:            a.SpaceID,
+		SpaceName:          fmt.Sprintf("%s-space", name),
+		URIs:               []string{uri},
+		Version:            a.Version,
+	})
+	if err != nil {
+		vcapApp = []byte("{}")
+	}
+
+	sysEnv := map[string]string{
+		"HOME": "/home/vcap/app",
+		"LANG": "en_US.UTF-8",
+		"PATH": "/usr/local/bin:/usr/bin:/bin",
+		"USER": "vcap",
+	}
+
+	appEnv := map[string]string{
+		"CF_INSTANCE_ADDR":  a.IP + ":8080",
+		"CF_INSTANCE_GUID":  a.InstanceID,
+		"CF_INSTANCE_INDEX": "0",
+		"CF_INSTANCE_IP":    a.IP,
+		"CF_INSTANCE_PORT":  "8080",
+		"CF_INSTANCE_PORTS": `[{"external":8080,"internal":8080}]`,
+		"INSTANCE_INDEX":    "0",
+		"MEMORY_LIMIT":      fmt.Sprintf("%dm", limits["mem"]),
+		"PORT":              "8080",
+		"TMPDIR":            "/home/vcap/tmp",
+		"VCAP_APPLICATION":  string(vcapApp),
+		"VCAP_SERVICES":     "{}",
+	}
+	envOverride(appEnv)
+
+	return mapsToEnv(sysEnv, appEnv)
+}
+
+func uintPtr(i uint) *uint {
+	return &i
 }
 
 func env(key, val string) string {
