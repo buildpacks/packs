@@ -42,9 +42,12 @@ func main() {
 
 	app, err := cfapp.New()
 	check(err, CodeFailedEnv, "build app env")
+	for k, v := range app.Stage() {
+		err := os.Setenv(k, v)
+		check(err, CodeFailedEnv, "set app env")
+	}
 
 	cmd := exec.Command("/lifecycle/builder", os.Args[1:]...)
-	cmd.Env = append(os.Environ(), app.Stage()...)
 	cmd.Dir = appDir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

@@ -22,20 +22,27 @@ func main() {
 	var inputDroplet string
 	flag.StringVar(&inputDroplet, "inputDroplet", "/tmp/droplet", "file containing compressed droplet")
 	flag.Parse()
-
-	app, err := cfapp.New()
-	check(err, CodeFailedEnv, "build app env")
+	command := strings.Join(flag.Args(), " ")
 
 	supplyApp(inputDroplet, "/home/vcap")
 	chownAll("vcap", "vcap", "/home/vcap")
 
-	err = os.Chdir("/home/vcap/app")
+	err := os.Chdir("/home/vcap/app")
 	check(err, CodeFailedSetup, "change directory")
 
-	command := readCommand("/home/vcap/staging_info.yml")
-	env := append(os.Environ(), app.Launch()...)
+	if command == "" {
+		command = readCommand("/home/vcap/staging_info.yml")
+	}
+
+	app, err := cfapp.New()
+	check(err, CodeFailedEnv, "build app env")
+	for k, v := range app.Launch() {
+		err := os.Setenv(k, v)
+		check(err, CodeFailedEnv, "set app env")
+	}
+
 	args := []string{"/lifecycle/launcher", "/home/vcap/app", command, ""}
-	err = syscall.Exec("/lifecycle/launcher", args, env)
+	err = syscall.Exec("/lifecycle/launcher", args, os.Environ())
 	check(err, CodeFailedLaunch, "launch")
 }
 

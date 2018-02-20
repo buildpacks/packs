@@ -4,6 +4,7 @@ FROM packs/${stack}
 EXPOSE 8080
 
 COPY launcher /
+COPY shell /
 
 USER vcap
 

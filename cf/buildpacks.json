@@ -1,0 +1,10 @@
+[
+  {
+    "name": "ruby_buildpack",
+    "uri": "https://github.com/cloudfoundry/ruby-buildpack/releases/download/v1.6.41/ruby-buildpack-v1.6.41.zip"
+  },
+  {
+    "name": "go_buildpack",
+    "uri": "https://github.com/cloudfoundry/go-buildpack/releases/download/v1.8.5/go-buildpack-v1.8.5.zip"
+  }
+]

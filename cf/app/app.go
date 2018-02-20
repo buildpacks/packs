@@ -80,12 +80,18 @@ func totalMem() (uint64, error) {
 		return 0, err
 	}
 	memBytes, err := strconv.ParseUint(strings.TrimSpace(string(contents)), 10, 64)
-	return memBytes / 1024 / 1024, err
+	if err != nil {
+		return 0, err
+	}
+	if memBytes == 9223372036854771712 {
+		return 1024, nil
+	}
+	return memBytes / 1024 / 1024, nil
 }
 
 func (a *App) config() (name, uri string, limits map[string]uint64) {
-	name = env("PACK_APP_NAME", a.Name)
-	uri = env("PACK_APP_URI", name+".local")
+	name = envStr("PACK_APP_NAME", a.Name)
+	uri = envStr("PACK_APP_URI", name+".local")
 
 	disk := envInt("PACK_APP_DISK", a.Disk)
 	fds := envInt("PACK_APP_FDS", a.Fds)
@@ -95,7 +101,7 @@ func (a *App) config() (name, uri string, limits map[string]uint64) {
 	return name, uri, limits
 }
 
-func (a *App) Stage() []string {
+func (a *App) Stage() map[string]string {
 	name, uri, limits := a.config()
 
 	vcapApp, err := json.Marshal(&vcapApplication{
@@ -133,10 +139,10 @@ func (a *App) Stage() []string {
 	}
 	envOverride(appEnv)
 
-	return mapsToEnv(sysEnv, appEnv)
+	return mergeMaps(sysEnv, appEnv)
 }
 
-func (a *App) Launch() []string {
+func (a *App) Launch() map[string]string {
 	name, uri, limits := a.config()
 
 	vcapApp, err := json.Marshal(&vcapApplication{
@@ -182,14 +188,14 @@ func (a *App) Launch() []string {
 	}
 	envOverride(appEnv)
 
-	return mapsToEnv(sysEnv, appEnv)
+	return mergeMaps(sysEnv, appEnv)
 }
 
 func uintPtr(i uint) *uint {
 	return &i
 }
 
-func env(key, val string) string {
+func envStr(key, val string) string {
 	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
@@ -207,15 +213,15 @@ func envInt(key string, val uint64) uint64 {
 
 func envOverride(m map[string]string) {
 	for k, v := range m {
-		m[k] = env(k, v)
+		m[k] = envStr(k, v)
 	}
 }
 
-func mapsToEnv(maps ...map[string]string) []string {
-	var result []string
+func mergeMaps(maps ...map[string]string) map[string]string {
+	result := make(map[string]string)
 	for _, m := range maps {
 		for k, v := range m {
-			result = append(result, fmt.Sprintf("%s=%s", k, v))
+			result[k] = v
 		}
 	}
 	return result
