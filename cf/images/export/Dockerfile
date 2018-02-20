@@ -1,6 +1,13 @@
+FROM gcr.io/cloud-builders/docker
+
 ARG stack
-FROM packs/${stack}:run
+ENV STACK "${stack}"
 
-ADD droplet.tgz /home/vcap
+RUN mkdir /workspace
 
-ENTRYPOINT ["/launcher"]
+WORKDIR /workspace
+
+COPY Dockerfile.pack /
+COPY export /
+
+ENTRYPOINT ["/export"]

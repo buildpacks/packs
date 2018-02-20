@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cp -f /Dockerfile.pack .
+docker build --build-arg "stack=${STACK}" --no-cache -f Dockerfile.pack -t "$1" .
+docker push "$1"

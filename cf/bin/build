@@ -12,3 +12,4 @@ GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/shell g
 
 docker build --build-arg "stack=${stack}" --build-arg buildpacks="$(<"${stack}.json")" -t "packs/${stack}:build" images/build
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:run" images/run
+docker build --build-arg "stack=${stack}" -t "packs/${stack}:export" images/export
