@@ -1,0 +1,6 @@
+ARG stack
+FROM packs/${stack}:run
+
+ADD droplet.tgz /home/vcap
+
+ENTRYPOINT ["/launcher"]
