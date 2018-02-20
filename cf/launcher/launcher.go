@@ -34,7 +34,8 @@ func main() {
 
 	command := readCommand("/home/vcap/staging_info.yml")
 	env := append(os.Environ(), app.Launch()...)
-	err = syscall.Exec("/lifecycle/launcher", []string{"/home/vcap/app", command, ""}, env)
+	args := []string{"/lifecycle/launcher", "/home/vcap/app", command, ""}
+	err = syscall.Exec("/lifecycle/launcher", args, env)
 	check(err, CodeFailedLaunch, "launch")
 }
 

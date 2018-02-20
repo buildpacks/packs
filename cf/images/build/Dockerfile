@@ -4,11 +4,11 @@ FROM packs/${stack}
 ARG buildpacks
 
 RUN \
-  mkdir -p /var/lib/buildpacks && \
-  for buildpack in ${buildpacks}; do \
-    name=$(echo "${buildpack}" | cut -f1 -d:) && \
-    url=$(echo "${buildpack}" | cut -f2- -d:) && \
-    curl -fsSLo /tmp/buildpack.zip "$url" && \
+  mkdir /var/lib/buildpacks && \
+  echo "${buildpacks}" | jq -c '.[]' | while read row; do \
+    name=$(echo "${row}" | jq -r '.name') && \
+    uri=$(echo "${row}" | jq -r '.uri') && \
+    curl -fsSLo /tmp/buildpack.zip "$uri" && \
     unzip -qq /tmp/buildpack.zip -d "/var/lib/buildpacks/$(echo -n "$name" | md5sum | awk '{ print $1 }')" && \
     rm /tmp/buildpack.zip; \
   done
