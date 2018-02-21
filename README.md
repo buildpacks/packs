@@ -1,12 +1,11 @@
 # Packs
 
-This repo provides Buildpack Cloud Builders ("Packs") that conform to the Pack Spec.
+This repo provides buildpack cloud builders ("Packs") that conform to the Pack Spec.
 
-The Pack Spec is more general than the Buildpack APIs implemented in the Buildpack Lifecycle.
-The Pack Spec is consistent for all Packs, regardless of ther Buildpack API version.
+The Pack Spec is more general than the buildpack APIs implemented in the buildpack Lifecycle.
+The Pack Spec is consistent for all Packs, regardless of their buildpack API version.
 
-External buildpack tools (such as [pack](https://github.com/buildpack/pack) and [aerosol](https://github.com/buildpack/aerosol))
-should implement the Pack Spec and not implement individual Buildpack API specs.
+External buildpack tools should implement the Pack Spec. They should not implement individual buildpack APIs.
 
 ## Quick Start: Cloud Foundry Packs
 
