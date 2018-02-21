@@ -16,10 +16,10 @@ docker run --rm -v "$(pwd)/app:/workspace" -v "$(pwd)/out:/out" packs/cf:build
 
 Run:
 ```bash
-docker run --rm -P -v "$(pwd)/out:/workspace" packs/cflinuxfs2:run
+docker run --rm -P -v "$(pwd)/out:/workspace" packs/cf:run
 ```
 
 Export:
 ```bash
-docker run --rm -v "$(pwd)/out:/workspace" -v /var/run/docker.sock:/var/run/docker.sock packs/cflinuxfs2:export my-image
+docker run --rm -v "$(pwd)/out:/workspace" -v /var/run/docker.sock:/var/run/docker.sock packs/cf:export my-image
 ```
