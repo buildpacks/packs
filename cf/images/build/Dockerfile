@@ -3,8 +3,11 @@ FROM packs/${stack}
 
 ARG buildpacks
 
+WORKDIR /workspace
+
 RUN \
   mkdir /var/lib/buildpacks && \
+  echo "${buildpacks}" > /var/lib/buildpacks/config.json && \
   echo "${buildpacks}" | jq -c '.[]' | while read row; do \
     name=$(echo "${row}" | jq -r '.name') && \
     uri=$(echo "${row}" | jq -r '.uri') && \
@@ -18,7 +21,6 @@ COPY builder /
 ENTRYPOINT [ \
   "/builder", \
   "-buildpacksDir", "/var/lib/buildpacks", \
-  "-buildDir", "/workspace", \
   "-buildArtifactsCacheDir", "/cache", \
   "-outputDroplet", "/out/droplet.tgz", \
   "-outputBuildArtifactsCache", "/dev/null", \

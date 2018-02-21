@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,6 +13,8 @@ import (
 	"syscall"
 
 	bal "code.cloudfoundry.org/buildpackapplifecycle"
+	"code.cloudfoundry.org/cli/cf/appfiles"
+
 	cfapp "github.com/sclevine/packs/cf/app"
 )
 
@@ -28,37 +31,47 @@ func main() {
 	check(err, CodeInvalidArgs, "invalid args")
 
 	var (
-		appDir      = config.BuildDir()
-		cacheDir    = config.BuildArtifactsCacheDir()
-		dropletDir  = filepath.Dir(config.OutputDroplet())
-		metadataDir = filepath.Dir(config.OutputMetadata())
+		appDir         = config.BuildDir()
+		cacheDir       = config.BuildArtifactsCacheDir()
+		dropletDir     = filepath.Dir(config.OutputDroplet())
+		metadataDir    = filepath.Dir(config.OutputMetadata())
+		buildpackConf  = filepath.Join(config.BuildpacksDir(), "config.json")
+		buildpackOrder = config.BuildpackOrder()
 	)
 
+	copyApp(".", appDir)
 	ensureDirs(appDir, cacheDir, dropletDir, metadataDir, "/home/vcap/tmp")
 	ensureLink(appDir, "/tmp/app")
 	ensureLink(cacheDir, "/tmp/cache")
+	addBuildpacks("/buildpacks", config.BuildpackPath)
 
-	setupBuildpacks("/buildpacks", config.BuildpackPath)
-
-	app, err := cfapp.New()
-	check(err, CodeFailedEnv, "build app env")
-	for k, v := range app.Stage() {
-		err := os.Setenv(k, v)
-		check(err, CodeFailedEnv, "set app env")
+	var extraArgs []string
+	if strings.Join(buildpackOrder, "") == "" {
+		extraArgs = append(extraArgs, "-buildpackOrder", reduceJSONFile("name", buildpackConf))
 	}
 
-	cmd := exec.Command("/lifecycle/builder", os.Args[1:]...)
+	uid, gid := userLookup("vcap")
+	setupEnv()
+
+	cmd := exec.Command("/lifecycle/builder", append(os.Args[1:], extraArgs...)...)
 	cmd.Dir = appDir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
-	uid, gid := userLookup("vcap")
-	cmd.SysProcAttr = &syscall.SysProcAttr{}
-	cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{Uid: uid, Gid: gid},
+	}
 
 	err = cmd.Run()
 	check(err, CodeFailedBuild, "build")
+}
+
+func copyApp(src, dst string) {
+	copier := appfiles.ApplicationFiles{}
+	files, err := copier.AppFilesInDir(src)
+	check(err, CodeFailedSetup, "analyze app")
+	err = copier.CopyFiles(files, src, dst)
+	check(err, CodeFailedSetup, "copy app")
 }
 
 func ensureDirs(dirs ...string) {
@@ -77,7 +90,7 @@ func ensureLink(s, t string) {
 	check(err, CodeFailedSetup, "symlink", s, "to", t)
 }
 
-func setupBuildpacks(dir string, dest func(string) string) {
+func addBuildpacks(dir string, dest func(string) string) {
 	files, err := ioutil.ReadDir(dir)
 	if os.IsNotExist(err) {
 		return
@@ -93,6 +106,29 @@ func setupBuildpacks(dir string, dest func(string) string) {
 		zip := filepath.Join(dir, filename)
 		dst := dest(strings.TrimSuffix(filename, ext))
 		unzip(zip, dst)
+	}
+}
+
+func reduceJSONFile(key string, path string) string {
+	f, err := os.Open(path)
+	check(err, CodeFailedSetup, "open", path)
+	var list []map[string]string
+	err = json.NewDecoder(f).Decode(&list)
+	check(err, CodeFailedSetup, "decode", path)
+
+	var out []string
+	for _, m := range list {
+		out = append(out, m[key])
+	}
+	return strings.Join(out, ",")
+}
+
+func setupEnv() {
+	app, err := cfapp.New()
+	check(err, CodeFailedEnv, "build app env")
+	for k, v := range app.Stage() {
+		err := os.Setenv(k, v)
+		check(err, CodeFailedEnv, "set app env")
 	}
 }
 

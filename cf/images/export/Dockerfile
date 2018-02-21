@@ -4,7 +4,6 @@ ARG stack
 ENV STACK "${stack}"
 
 RUN mkdir /workspace
-
 WORKDIR /workspace
 
 COPY Dockerfile.pack /

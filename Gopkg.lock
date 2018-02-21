@@ -7,9 +7,117 @@
   packages = ["."]
   revision = "3746a1e5aa88947bc7ce682bb2843623b9e24907"
 
+[[projects]]
+  branch = "master"
+  name = "code.cloudfoundry.org/bytefmt"
+  packages = ["."]
+  revision = "b31f603f5e1e047fdb38584e1a922dcc5c4de5c8"
+
+[[projects]]
+  name = "code.cloudfoundry.org/cli"
+  packages = ["actor/actionerror","api/cloudcontroller","api/cloudcontroller/ccerror","api/cloudcontroller/ccv2","api/cloudcontroller/ccv2/constant","api/cloudcontroller/ccv2/internal","api/cloudcontroller/ccversion","api/plugin/pluginerror","api/uaa","api/uaa/internal","cf/appfiles","cf/errors","cf/formatters","cf/i18n","cf/models","command/translatableerror","i18n/resources","types","util","util/clissh/ssherror","util/configv3","util/glob","util/manifest","util/ui","version"]
+  revision = "bbdf81482f6cfa6281b1937f23cea3162b976351"
+  version = "v6.34.1"
+
+[[projects]]
+  branch = "master"
+  name = "code.cloudfoundry.org/gofileutils"
+  packages = ["fileutils"]
+  revision = "4d0c80011a0f37da1711c184028bc40137cd45af"
+
+[[projects]]
+  name = "github.com/SermoDigital/jose"
+  packages = [".","crypto","jws","jwt"]
+  revision = "f6df55f235c24f236d11dbcf665249a59ac2021f"
+  version = "1.1"
+
+[[projects]]
+  name = "github.com/blang/semver"
+  packages = ["."]
+  revision = "2ee87856327ba09384cabd113bc6b5d174e9ec0f"
+  version = "v3.5.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/bmizerany/pat"
+  packages = ["."]
+  revision = "6226ea591a40176dd3ff9cd8eff81ed6ca721a00"
+
+[[projects]]
+  name = "github.com/fatih/color"
+  packages = ["."]
+  revision = "507f6050b8568533fb3f5504de8e5205fa62a114"
+  version = "v1.6.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/lunixbochs/vtclean"
+  packages = ["."]
+  revision = "d14193dfc626125c831501c1c42340b4248e1f5a"
+
+[[projects]]
+  name = "github.com/mattn/go-colorable"
+  packages = ["."]
+  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
+  version = "v0.0.9"
+
+[[projects]]
+  name = "github.com/mattn/go-isatty"
+  packages = ["."]
+  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
+  version = "v0.0.3"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  revision = "97311d9f7767e3d6f422ea06661bc2c7a19e8a5d"
+
+[[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
+  version = "v1.0.4"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/tedsuo/rata"
+  packages = ["."]
+  revision = "07d200713958d05692ac35aa8b5f1949342fee80"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/vito/go-interact"
+  packages = ["interact","interact/terminal"]
+  revision = "fa338ed9e9ecbb0e9c2e6c7a0160d9fc9b0efbd9"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/crypto"
+  packages = ["ssh/terminal"]
+  revision = "432090b8f568c018896cd8a0fb0345872bbac6ce"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = ["unix","windows"]
+  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/text"
+  packages = ["internal/gen","internal/tag","language","unicode/cldr"]
+  revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
+
+[[projects]]
+  branch = "v2"
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fd40c5b2062c8f064aca35a7e517ec92cdb6af12725ee790db854686def62014"
+  inputs-digest = "5b2a0acbf37caca8b867e03e01a436c4b4c8cd557f2fbe1be1a6a91f6b7f0313"
   solver-name = "gps-cdcl"
   solver-version = 1
