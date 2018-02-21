@@ -74,6 +74,12 @@
   revision = "97311d9f7767e3d6f422ea06661bc2c7a19e8a5d"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/sclevine/spec"
+  packages = ["."]
+  revision = "b2a18c83f7093235f63f9f6862449a8b68ff84a5"
+
+[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
@@ -118,6 +124,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5b2a0acbf37caca8b867e03e01a436c4b4c8cd557f2fbe1be1a6a91f6b7f0313"
+  inputs-digest = "9a813118558489e3ba9a8b666692c8c11c63415077d31fa6b206ef5c740a3c4d"
   solver-name = "gps-cdcl"
   solver-version = 1

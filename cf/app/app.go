@@ -2,16 +2,17 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
 )
 
-type vcapApplication struct {
+type VCAPApplication struct {
 	ApplicationID      string            `json:"application_id"`
 	ApplicationName    string            `json:"application_name"`
 	ApplicationURIs    []string          `json:"application_uris"`
@@ -29,34 +30,34 @@ type vcapApplication struct {
 }
 
 type App struct {
-	Name       string
-	Mem        uint64
-	Disk       uint64
-	Fds        uint64
-	ID         string
-	InstanceID string
-	SpaceID    string
-	Version    string
-	IP         string
+	name       string
+	mem        uint64
+	disk       uint64
+	fds        uint64
+	id         string
+	instanceID string
+	spaceID    string
+	version    string
+	ip         string
 }
 
 func New() (*App, error) {
 	var err error
 	app := &App{}
-	app.Name = "app"
-	if app.Mem, err = totalMem(); err != nil {
+	app.name = "app"
+	if app.mem, err = totalMem(); err != nil {
 		return nil, err
 	}
-	app.Disk = 1024
+	app.disk = 1024
 	var fds syscall.Rlimit
 	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &fds); err != nil {
 		return nil, err
 	}
-	app.Fds = fds.Cur
-	if app.IP, err = containerIP(); err != nil {
+	app.fds = fds.Cur
+	if app.ip, err = containerIP(); err != nil {
 		return nil, err
 	}
-	for _, id := range []*string{&app.ID, &app.InstanceID, &app.SpaceID, &app.Version} {
+	for _, id := range []*string{&app.id, &app.instanceID, &app.spaceID, &app.version} {
 		if *id, err = uuid(); err != nil {
 			return nil, err
 		}
@@ -65,8 +66,20 @@ func New() (*App, error) {
 }
 
 func containerIP() (string, error) {
-	ip, err := exec.Command("hostname", "-i").Output()
-	return strings.TrimSpace(string(ip)), err
+	host, err := os.Hostname()
+	if err != nil {
+		return "", err
+	}
+	addrs, err := net.LookupIP(host)
+	if err != nil {
+		return "", err
+	}
+	for _, addr := range addrs {
+		if ip := addr.To4(); ip != nil {
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("no valid ipv4 address found")
 }
 
 func uuid() (string, error) {
@@ -90,12 +103,12 @@ func totalMem() (uint64, error) {
 }
 
 func (a *App) config() (name, uri string, limits map[string]uint64) {
-	name = envStr("PACK_APP_NAME", a.Name)
+	name = envStr("PACK_APP_NAME", a.name)
 	uri = envStr("PACK_APP_URI", name+".local")
 
-	disk := envInt("PACK_APP_DISK", a.Disk)
-	fds := envInt("PACK_APP_FDS", a.Fds)
-	mem := envInt("PACK_APP_MEM", a.Mem)
+	disk := envInt("PACK_APP_DISK", a.disk)
+	fds := envInt("PACK_APP_FDS", a.fds)
+	mem := envInt("PACK_APP_MEM", a.mem)
 	limits = map[string]uint64{"disk": disk, "fds": fds, "mem": mem}
 
 	return name, uri, limits
@@ -104,17 +117,17 @@ func (a *App) config() (name, uri string, limits map[string]uint64) {
 func (a *App) Stage() map[string]string {
 	name, uri, limits := a.config()
 
-	vcapApp, err := json.Marshal(&vcapApplication{
-		ApplicationID:      a.ID,
+	vcapApp, err := json.Marshal(&VCAPApplication{
+		ApplicationID:      a.id,
 		ApplicationName:    name,
 		ApplicationURIs:    []string{uri},
-		ApplicationVersion: a.Version,
+		ApplicationVersion: a.version,
 		Limits:             limits,
 		Name:               name,
-		SpaceID:            a.SpaceID,
+		SpaceID:            a.spaceID,
 		SpaceName:          fmt.Sprintf("%s-space", name),
 		URIs:               []string{uri},
-		Version:            a.Version,
+		Version:            a.version,
 	})
 	if err != nil {
 		vcapApp = []byte("{}")
@@ -129,7 +142,7 @@ func (a *App) Stage() map[string]string {
 
 	appEnv := map[string]string{
 		"CF_INSTANCE_ADDR":  "",
-		"CF_INSTANCE_IP":    a.IP,
+		"CF_INSTANCE_IP":    a.ip,
 		"CF_INSTANCE_PORT":  "",
 		"CF_INSTANCE_PORTS": "[]",
 		"CF_STACK":          "cflinuxfs2",
@@ -145,21 +158,21 @@ func (a *App) Stage() map[string]string {
 func (a *App) Launch() map[string]string {
 	name, uri, limits := a.config()
 
-	vcapApp, err := json.Marshal(&vcapApplication{
-		ApplicationID:      a.ID,
+	vcapApp, err := json.Marshal(&VCAPApplication{
+		ApplicationID:      a.id,
 		ApplicationName:    name,
 		ApplicationURIs:    []string{uri},
-		ApplicationVersion: a.Version,
+		ApplicationVersion: a.version,
 		Host:               "0.0.0.0",
-		InstanceID:         a.InstanceID,
+		InstanceID:         a.instanceID,
 		InstanceIndex:      uintPtr(0),
 		Limits:             limits,
 		Name:               name,
 		Port:               uintPtr(8080),
-		SpaceID:            a.SpaceID,
+		SpaceID:            a.spaceID,
 		SpaceName:          fmt.Sprintf("%s-space", name),
 		URIs:               []string{uri},
-		Version:            a.Version,
+		Version:            a.version,
 	})
 	if err != nil {
 		vcapApp = []byte("{}")
@@ -173,10 +186,10 @@ func (a *App) Launch() map[string]string {
 	}
 
 	appEnv := map[string]string{
-		"CF_INSTANCE_ADDR":  a.IP + ":8080",
-		"CF_INSTANCE_GUID":  a.InstanceID,
+		"CF_INSTANCE_ADDR":  a.ip + ":8080",
+		"CF_INSTANCE_GUID":  a.instanceID,
 		"CF_INSTANCE_INDEX": "0",
-		"CF_INSTANCE_IP":    a.IP,
+		"CF_INSTANCE_IP":    a.ip,
 		"CF_INSTANCE_PORT":  "8080",
 		"CF_INSTANCE_PORTS": `[{"external":8080,"internal":8080}]`,
 		"INSTANCE_INDEX":    "0",

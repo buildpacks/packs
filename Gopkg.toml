@@ -5,3 +5,7 @@
 [[constraint]]
   name = "code.cloudfoundry.org/cli"
   version = "=6.34.1"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/sclevine/spec"
