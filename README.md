@@ -12,15 +12,15 @@ should implement the Pack Spec and not implement individual Buildpack API specs.
 
 Build:
 ```bash
-docker run -it -v $(pwd)/app:/workspace -v $(pwd)/out:/out packs/cf:build
+docker run --rm -v "$(pwd)/app:/workspace" -v "$(pwd)/out:/out" packs/cf:build
 ```
 
 Run:
 ```bash
-docker run  --rm -it -P -v $(pwd)/out:/workspace packs/cflinuxfs2:run
+docker run --rm -P -v "$(pwd)/out:/workspace" packs/cflinuxfs2:run
 ```
 
 Export:
 ```bash
-docker run -it --rm -v $(pwd)/out:/workspace -v /var/run/docker.sock:/var/run/docker.sock  packs/cflinuxfs2:export my-image
+docker run --rm -v "$(pwd)/out:/workspace" -v /var/run/docker.sock:/var/run/docker.sock  packs/cflinuxfs2:export my-image
 ```
