@@ -10,4 +10,6 @@ if [[ ! -f ${stack}.json ]]; then
   exit 1
 fi
 
-docker run --rm -v "$(pwd)/..:/go/src/github.com/sclevine/packs" "packs/${stack}-test" github.com/sclevine/packs/cf/app
+repo=github.com/sclevine/packs
+docker run --rm -v "$(pwd)/..:/go/src/${repo}" "packs/${stack}-test" "${repo}/cf/app"
+docker run --rm --memory 100m -v "$(pwd)/..:/go/src/${repo}" "packs/${stack}-test" "${repo}/cf/app" -memory 100

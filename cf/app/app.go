@@ -12,6 +12,12 @@ import (
 	"syscall"
 )
 
+const (
+	kernelUUIDPath = "/proc/sys/kernel/random/uuid"
+	cgroupMemLimitPath = "/sys/fs/cgroup/memory/memory.limit_in_bytes"
+	cgroupMemUnlimited = 9223372036854771712
+)
+
 type VCAPApplication struct {
 	ApplicationID      string            `json:"application_id"`
 	ApplicationName    string            `json:"application_name"`
@@ -83,12 +89,12 @@ func containerIP() (string, error) {
 }
 
 func uuid() (string, error) {
-	id, err := ioutil.ReadFile("/proc/sys/kernel/random/uuid")
+	id, err := ioutil.ReadFile(kernelUUIDPath)
 	return strings.TrimSpace(string(id)), err
 }
 
 func totalMem() (uint64, error) {
-	contents, err := ioutil.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+	contents, err := ioutil.ReadFile(cgroupMemLimitPath)
 	if err != nil {
 		return 0, err
 	}
@@ -96,7 +102,7 @@ func totalMem() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if memBytes == 9223372036854771712 {
+	if memBytes == cgroupMemUnlimited {
 		return 1024, nil
 	}
 	return memBytes / 1024 / 1024, nil
