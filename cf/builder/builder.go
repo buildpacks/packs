@@ -39,6 +39,7 @@ func main() {
 		metadataDir    = filepath.Dir(config.OutputMetadata())
 		buildpackConf  = filepath.Join(config.BuildpacksDir(), "config.json")
 		buildpackOrder = config.BuildpackOrder()
+		skipDetect     = config.SkipDetect()
 	)
 
 	if _, err := os.Stat(appDir); os.IsNotExist(err) {
@@ -52,7 +53,7 @@ func main() {
 	ensureDirs(appDir, cacheDir, dropletDir, metadataDir, "/home/vcap/tmp")
 	addBuildpacks("/buildpacks", config.BuildpackPath)
 
-	if strings.Join(buildpackOrder, "") == "" {
+	if strings.Join(buildpackOrder, "") == "" && !skipDetect {
 		extraArgs = append(extraArgs, "-buildpackOrder", reduceJSONFile("name", buildpackConf))
 	}
 
