@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	kernelUUIDPath = "/proc/sys/kernel/random/uuid"
+	kernelUUIDPath     = "/proc/sys/kernel/random/uuid"
 	cgroupMemLimitPath = "/sys/fs/cgroup/memory/memory.limit_in_bytes"
 	cgroupMemUnlimited = 9223372036854771712
 )
@@ -36,6 +36,8 @@ type VCAPApplication struct {
 }
 
 type App struct {
+	Env func(string) (string, bool)
+
 	name       string
 	mem        uint64
 	disk       uint64
@@ -49,7 +51,7 @@ type App struct {
 
 func New() (*App, error) {
 	var err error
-	app := &App{}
+	app := &App{Env: os.LookupEnv}
 	app.name = "app"
 	if app.mem, err = totalMem(); err != nil {
 		return nil, err
@@ -109,12 +111,12 @@ func totalMem() (uint64, error) {
 }
 
 func (a *App) config() (name, uri string, limits map[string]uint64) {
-	name = envStr("PACK_APP_NAME", a.name)
-	uri = envStr("PACK_APP_URI", name+".local")
+	name = a.envStr("PACK_APP_NAME", a.name)
+	uri = a.envStr("PACK_APP_URI", name+".local")
 
-	disk := envInt("PACK_APP_DISK", a.disk)
-	fds := envInt("PACK_APP_FDS", a.fds)
-	mem := envInt("PACK_APP_MEM", a.mem)
+	disk := a.envInt("PACK_APP_DISK", a.disk)
+	fds := a.envInt("PACK_APP_FDS", a.fds)
+	mem := a.envInt("PACK_APP_MEM", a.mem)
 	limits = map[string]uint64{"disk": disk, "fds": fds, "mem": mem}
 
 	return name, uri, limits
@@ -156,7 +158,7 @@ func (a *App) Stage() map[string]string {
 		"VCAP_APPLICATION":  string(vcapApp),
 		"VCAP_SERVICES":     "{}",
 	}
-	envOverride(appEnv)
+	a.envOverride(appEnv)
 
 	return mergeMaps(sysEnv, appEnv)
 }
@@ -205,24 +207,20 @@ func (a *App) Launch() map[string]string {
 		"VCAP_APPLICATION":  string(vcapApp),
 		"VCAP_SERVICES":     "{}",
 	}
-	envOverride(appEnv)
+	a.envOverride(appEnv)
 
 	return mergeMaps(sysEnv, appEnv)
 }
 
-func uintPtr(i uint) *uint {
-	return &i
-}
-
-func envStr(key, val string) string {
-	if v, ok := os.LookupEnv(key); ok {
+func (a *App) envStr(key, val string) string {
+	if v, ok := a.Env(key); ok {
 		return v
 	}
 	return val
 }
 
-func envInt(key string, val uint64) uint64 {
-	if v, ok := os.LookupEnv(key); ok {
+func (a *App) envInt(key string, val uint64) uint64 {
+	if v, ok := a.Env(key); ok {
 		if vInt, err := strconv.ParseUint(v, 10, 64); err == nil {
 			return vInt
 		}
@@ -230,9 +228,9 @@ func envInt(key string, val uint64) uint64 {
 	return val
 }
 
-func envOverride(m map[string]string) {
+func (a *App) envOverride(m map[string]string) {
 	for k, v := range m {
-		m[k] = envStr(k, v)
+		m[k] = a.envStr(k, v)
 	}
 }
 
@@ -244,4 +242,8 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 		}
 	}
 	return result
+}
+
+func uintPtr(i uint) *uint {
+	return &i
 }

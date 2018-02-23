@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 	"os/exec"
 	"reflect"
 	"strconv"
@@ -18,7 +17,10 @@ import (
 
 var memory = flag.Uint64("memory", 1024, "expected memory usage in mb")
 
-type cmpFunc func(t *testing.T, v1, v2 string)
+type cmpMap []struct {
+	k, v2 string
+	cmp   func(t *testing.T, v1, v2 string)
+}
 
 func TestApp(t *testing.T) {
 	spec.Run(t, "#Stage", testStage)
@@ -29,7 +31,6 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 	var (
 		app *pkgapp.App
 		set func(k, v string)
-		reset func()
 	)
 
 	it.Before(func() {
@@ -37,15 +38,12 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 		if app, err = pkgapp.New(); err != nil {
 			t.Fatalf("Failed to create app: %s\n", err)
 		}
-		set, reset = setEnv(t)
-	})
-
-	it.After(func() {
-		reset()
+		app.Env, set = env()
 	})
 
 	it("should return the default staging env", func() {
 		env := app.Stage()
+
 		vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])
 		if err != nil {
 			t.Fatalf("Error: %s\n", err)
@@ -54,12 +52,9 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 		if err != nil {
 			t.Fatalf("Error: %s\n", err)
 		}
-		expectedEnv := []struct {
-			k, v2 string
-			cmp   cmpFunc
-		}{
+		expected := cmpMap{
 			{"CF_INSTANCE_ADDR", "", nil},
-			{"CF_INSTANCE_IP", "", ipCmp},
+			{"CF_INSTANCE_IP", "", hostIPCmp},
 			{"CF_INSTANCE_PORT", "", nil},
 			{"CF_INSTANCE_PORTS", "[]", nil},
 			{"CF_STACK", "cflinuxfs2", nil},
@@ -71,22 +66,14 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 			{"VCAP_APPLICATION", string(vcapAppJSON), vcapAppCmp},
 			{"VCAP_SERVICES", "{}", nil},
 		}
-		if v1, v2 := len(env), len(expectedEnv); v1 != v2 {
+		if v1, v2 := len(env), len(expected); v1 != v2 {
 			t.Fatalf("Different lengths: %d != %d\n", v1, v2)
 		}
-		for _, exp := range expectedEnv {
-			if v1, ok := env[exp.k]; !ok {
-				t.Fatalf("Missing: %s\n", exp.k)
-			} else if exp.cmp != nil {
-				exp.cmp(t, v1, exp.v2)
-			} else if v1 != exp.v2 {
-				t.Fatalf("%s: %s != %s\n", exp.k, v1, exp.v2)
-			}
-		}
+		compare(t, env, expected)
 	})
 
-	when("all custom env variables are set", func() {
-		it("should return a custom staging env", func() {
+	when("PACK env variables are set", func() {
+		it("should customize the staging env accordingly", func() {
 			set("PACK_APP_NAME", "some-name")
 			set("PACK_APP_URI", "some-uri")
 			set("PACK_APP_DISK", "10")
@@ -94,6 +81,7 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 			set("PACK_APP_MEM", "30")
 
 			env := app.Stage()
+
 			if mem := env["MEMORY_LIMIT"]; mem != "30m" {
 				t.Fatalf("Incorrect memory: %d", mem)
 			}
@@ -116,7 +104,27 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when("only a custom name is set", func() {
+	when("buildpack env vars are set", func() {
+		it("should always override other values", func() {
+			set("PACK_APP_MEM", "30")
+			set("CF_INSTANCE_IP", "some-ip")
+			set("CF_INSTANCE_PORT", "some-port")
+			set("CF_INSTANCE_PORTS", "some-ports")
+			set("MEMORY_LIMIT", "some-memory")
+
+			env := app.Stage()
+
+			expected := cmpMap{
+				{"CF_INSTANCE_IP", "some-ip", nil},
+				{"CF_INSTANCE_PORT", "some-port", nil},
+				{"CF_INSTANCE_PORTS", "some-ports", nil},
+				{"MEMORY_LIMIT", "some-memory", nil},
+			}
+			compare(t, env, expected)
+		})
+	})
+
+	when("a custom app name is set", func() {
 		it("should use the name for the uri as well", func() {
 			set("PACK_APP_NAME", "some-name")
 
@@ -144,7 +152,6 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 	var (
 		app *pkgapp.App
 		set func(k, v string)
-		reset func()
 	)
 
 	it.Before(func() {
@@ -152,11 +159,7 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 		if app, err = pkgapp.New(); err != nil {
 			t.Fatalf("Failed to create app: %s\n", err)
 		}
-		set, reset = setEnv(t)
-	})
-
-	it.After(func() {
-		reset()
+		app.Env, set = env()
 	})
 
 	it("should return the default launch env", func() {
@@ -173,14 +176,11 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 		if err != nil {
 			t.Fatalf("Error: %s\n", err)
 		}
-		expectedEnv := []struct {
-			k, v2 string
-			cmp   cmpFunc
-		}{
-			{"CF_INSTANCE_ADDR", ":8080", ipCmp},
+		expected := cmpMap{
+			{"CF_INSTANCE_ADDR", ":8080", hostIPCmp},
 			{"CF_INSTANCE_GUID", "", uuidCmp},
 			{"CF_INSTANCE_INDEX", "0", nil},
-			{"CF_INSTANCE_IP", "", ipCmp},
+			{"CF_INSTANCE_IP", "", hostIPCmp},
 			{"CF_INSTANCE_PORT", "8080", nil},
 			{"CF_INSTANCE_PORTS", `[{"external":8080,"internal":8080}]`, nil},
 			{"HOME", "/home/vcap/app", nil},
@@ -194,22 +194,14 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 			{"VCAP_APPLICATION", string(vcapAppJSON), vcapAppCmp},
 			{"VCAP_SERVICES", "{}", nil},
 		}
-		if v1, v2 := len(env), len(expectedEnv); v1 != v2 {
+		if v1, v2 := len(env), len(expected); v1 != v2 {
 			t.Fatalf("Different lengths: %d != %d\n", v1, v2)
 		}
-		for _, exp := range expectedEnv {
-			if v1, ok := env[exp.k]; !ok {
-				t.Fatalf("Missing: %s\n", exp.k)
-			} else if exp.cmp != nil {
-				exp.cmp(t, v1, exp.v2)
-			} else if v1 != exp.v2 {
-				t.Fatalf("%s: %s != %s\n", exp.k, v1, exp.v2)
-			}
-		}
+		compare(t, env, expected)
 	})
 
-	when("all custom env variables are set", func() {
-		it("should return a custom staging env", func() {
+	when("PACK env variables are set", func() {
+		it("should customize the launch env accordingly", func() {
 			set("PACK_APP_NAME", "some-name")
 			set("PACK_APP_URI", "some-uri")
 			set("PACK_APP_DISK", "10")
@@ -217,6 +209,7 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 			set("PACK_APP_MEM", "30")
 
 			env := app.Launch()
+
 			if mem := env["MEMORY_LIMIT"]; mem != "30m" {
 				t.Fatalf("Incorrect memory: %d", mem)
 			}
@@ -246,7 +239,27 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when("only a custom name is set", func() {
+	when("buildpack env vars are set", func() {
+		it("should always override other values", func() {
+			set("PACK_APP_MEM", "30")
+			set("CF_INSTANCE_ADDR", "some-addr")
+			set("CF_INSTANCE_GUID", "some-guid")
+			set("CF_INSTANCE_INDEX", "some-index")
+			set("MEMORY_LIMIT", "some-memory")
+
+			env := app.Launch()
+
+			expected := cmpMap{
+				{"CF_INSTANCE_ADDR", "some-addr", nil},
+				{"CF_INSTANCE_GUID", "some-guid", nil},
+				{"CF_INSTANCE_INDEX", "some-index", nil},
+				{"MEMORY_LIMIT", "some-memory", nil},
+			}
+			compare(t, env, expected)
+		})
+	})
+
+	when("a custom app name is set", func() {
 		it("should use the name for the uri as well", func() {
 			set("PACK_APP_NAME", "some-name")
 
@@ -277,6 +290,19 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
+func compare(t *testing.T, env map[string]string, cmp cmpMap) {
+	t.Helper()
+	for _, exp := range cmp {
+		if v1, ok := env[exp.k]; !ok {
+			t.Fatalf("Missing: %s\n", exp.k)
+		} else if exp.cmp != nil {
+			exp.cmp(t, v1, exp.v2)
+		} else if v1 != exp.v2 {
+			t.Fatalf("%s: %s != %s\n", exp.k, v1, exp.v2)
+		}
+	}
+}
+
 func uuidCmp(t *testing.T, uuid, _ string) {
 	t.Helper()
 	if len(uuid) != 36 {
@@ -284,7 +310,7 @@ func uuidCmp(t *testing.T, uuid, _ string) {
 	}
 }
 
-func ipCmp(t *testing.T, ip, suffix string) {
+func hostIPCmp(t *testing.T, ip, suffix string) {
 	t.Helper()
 	out, err := exec.Command("hostname", "-i").Output()
 	if err != nil {
@@ -362,30 +388,12 @@ func uintPtr(i uint) *uint {
 	return &i
 }
 
-func setEnv(t *testing.T) (set func(k, v string), reset func()) {
-	var new []string
-	saved := map[string]string{}
-	return func(k, v string) {
-			if old, ok := os.LookupEnv(k); ok {
-				saved[k] = old
-			} else {
-				new = append(new, k)
-			}
-			if err := os.Setenv(k, v); err != nil {
-				t.Fatalf("Failed to set %s=%s", k, v)
-			}
-		}, func() {
-			for k, v := range saved {
-				if err := os.Setenv(k, v); err != nil {
-					t.Fatalf("Failed to reset %s=%s", k, v)
-				}
-				delete(saved, k)
-			}
-			for _, k := range new {
-				if err := os.Unsetenv(k); err != nil {
-					t.Fatalf("Failed to unset %s", k)
-				}
-			}
-			new = nil
+func env() (env func(string) (string, bool), set func(k, v string)) {
+	m := map[string]string{}
+	return func(k string) (string, bool) {
+			v, ok := m[k]
+			return v, ok
+		}, func(k, v string) {
+			m[k] = v
 		}
 }
