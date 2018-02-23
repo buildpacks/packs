@@ -69,7 +69,7 @@ func readCommand(path string) string {
 
 func chownAll(user, group, path string) {
 	err := exec.Command("chown", "-R", user+":"+group, path).Run()
-	check(err, CodeFailedSetup, "chown", path, "to", user+"/"+group)
+	check(err, CodeFailedSetup, "chown", path, "to", user+":"+group)
 }
 
 func check(err error, code int, action ...string) {

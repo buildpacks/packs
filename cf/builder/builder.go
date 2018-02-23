@@ -31,7 +31,9 @@ func main() {
 	check(err, CodeInvalidArgs, "invalid args")
 
 	var (
-		appDir         = config.BuildDir()
+		extraArgs      []string
+		appDir         = "/tmp/app"
+		buildDir       = config.BuildDir()
 		cacheDir       = config.BuildArtifactsCacheDir()
 		dropletDir     = filepath.Dir(config.OutputDroplet())
 		metadataDir    = filepath.Dir(config.OutputMetadata())
@@ -39,13 +41,17 @@ func main() {
 		buildpackOrder = config.BuildpackOrder()
 	)
 
-	copyApp(".", appDir)
+	if _, err := os.Stat(appDir); os.IsNotExist(err) {
+		if zip := buildDir; isZip(zip) {
+			copyZip(zip, appDir)
+		} else {
+			copyApp(buildDir, appDir)
+		}
+	}
+	extraArgs = append(extraArgs, "-buildDir", appDir)
 	ensureDirs(appDir, cacheDir, dropletDir, metadataDir, "/home/vcap/tmp")
-	ensureLink(appDir, "/tmp/app")
-	ensureLink(cacheDir, "/tmp/cache")
 	addBuildpacks("/buildpacks", config.BuildpackPath)
 
-	var extraArgs []string
 	if strings.Join(buildpackOrder, "") == "" {
 		extraArgs = append(extraArgs, "-buildpackOrder", reduceJSONFile("name", buildpackConf))
 	}
@@ -74,20 +80,27 @@ func copyApp(src, dst string) {
 	check(err, CodeFailedSetup, "copy app")
 }
 
+func copyZip(src, dst string) {
+	zipper := appfiles.ApplicationZipper{}
+	tmpDir, err := ioutil.TempDir("", "pack")
+	check(err, CodeFailedSetup, "create temp dir")
+	defer os.RemoveAll(tmpDir)
+	err = zipper.Unzip(src, tmpDir)
+	check(err, CodeFailedSetup, "unzip app")
+	copyApp(tmpDir, dst)
+}
+
+func isZip(path string) bool {
+	zipper := appfiles.ApplicationZipper{}
+	return zipper.IsZipFile(path)
+}
+
 func ensureDirs(dirs ...string) {
 	for _, dir := range dirs {
 		err := os.MkdirAll(dir, 0777)
 		check(err, CodeFailedSetup, "ensure directory", dir)
 		chownAll("vcap", "vcap", dir)
 	}
-}
-
-func ensureLink(s, t string) {
-	if _, err := os.Stat(t); !os.IsNotExist(err) {
-		return
-	}
-	err := os.Symlink(s, t)
-	check(err, CodeFailedSetup, "symlink", s, "to", t)
 }
 
 func addBuildpacks(dir string, dest func(string) string) {

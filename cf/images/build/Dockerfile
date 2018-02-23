@@ -21,6 +21,7 @@ COPY builder /
 ENTRYPOINT [ \
   "/builder", \
   "-buildpacksDir", "/var/lib/buildpacks", \
+  "-buildDir", ".", \
   "-buildArtifactsCacheDir", "/cache", \
   "-outputDroplet", "/out/droplet.tgz", \
   "-outputBuildArtifactsCache", "/dev/null", \
