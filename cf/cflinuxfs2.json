@@ -29,7 +29,7 @@
   },
   {
     "name": "dotnet_core_buildpack",
-    "uri": "https://github.com/cloudfoundry/dotnet-core-buildpack/releases/download/v2.0.2/dotnet-core-buildpack-v2.0.2.zip"
+    "uri": "https://github.com/cloudfoundry/dotnet-core-buildpack/releases/download/v2.0.3/dotnet-core-buildpack-v2.0.3.zip"
   },
   {
     "name": "binary_buildpack",
