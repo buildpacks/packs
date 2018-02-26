@@ -9,9 +9,9 @@ docker tag packs/cflinuxfs2:build packs/cf:build
 docker tag packs/cflinuxfs2:run packs/cf:run
 docker tag packs/cflinuxfs2:export packs/cf:export
 
-docker tag packs/cflinuxfs2:build packs/cf:build-v2
-docker tag packs/cflinuxfs2:run packs/cf:run-v2
-docker tag packs/cflinuxfs2:export packs/cf:export-v2
+docker tag packs/cflinuxfs2:build packs/cf:build-v4
+docker tag packs/cflinuxfs2:run packs/cf:run-v4
+docker tag packs/cflinuxfs2:export packs/cf:export-v4
 
 docker push packs/cflinuxfs2:latest
 docker push packs/cflinuxfs2:build
@@ -23,8 +23,8 @@ docker push packs/cf:build
 docker push packs/cf:run
 docker push packs/cf:export
 
-docker push packs/cf:build-v2
-docker push packs/cf:run-v2
-docker push packs/cf:export-v2
+docker push packs/cf:build-v4
+docker push packs/cf:run-v4
+docker push packs/cf:export-v4
 
 docker push packs/cflinuxfs2-test
