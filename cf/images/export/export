@@ -2,6 +2,6 @@
 
 set -euo pipefail
 
-cp -f /packs/Dockerfile.pack .
-docker build --build-arg "stack=${STACK}" --no-cache -f Dockerfile.pack -t "$1" .
+cp -f /packs/Dockerfile .
+docker build --build-arg --no-cache -t "$1" .
 docker push "$1"

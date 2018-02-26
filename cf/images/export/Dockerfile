@@ -1,13 +1,18 @@
 FROM gcr.io/cloud-builders/docker
 
 ARG stack
-ENV STACK "${stack}"
 
 RUN mkdir /workspace
 WORKDIR /workspace
 
 RUN mkdir /packs
-COPY Dockerfile.pack /packs/
+
+RUN ( \
+  echo "FROM packs/${stack}:run" && \
+  echo 'ADD droplet.tgz /home/vcap' && \
+  echo 'ENTRYPOINT ["/packs/launcher"]' \
+  ) > /packs/Dockerfile
+
 COPY export /packs/
 
 ENTRYPOINT ["/packs/export"]
