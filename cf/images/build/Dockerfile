@@ -16,10 +16,11 @@ RUN \
     rm /tmp/buildpack.zip; \
   done
 
-COPY builder /
+RUN mkdir /packs
+COPY builder /packs/
 
 ENTRYPOINT [ \
-  "/builder", \
+  "/packs/builder", \
   "-buildpacksDir", "/var/lib/buildpacks", \
   "-buildDir", ".", \
   "-buildArtifactsCacheDir", "/cache", \

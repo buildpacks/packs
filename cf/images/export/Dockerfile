@@ -6,7 +6,8 @@ ENV STACK "${stack}"
 RUN mkdir /workspace
 WORKDIR /workspace
 
-COPY Dockerfile.pack /
-COPY export /
+RUN mkdir /packs
+COPY Dockerfile.pack /packs/
+COPY export /packs/
 
-ENTRYPOINT ["/export"]
+ENTRYPOINT ["/packs/export"]

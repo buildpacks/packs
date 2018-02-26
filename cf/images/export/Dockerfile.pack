@@ -3,4 +3,4 @@ FROM packs/${stack}:run
 
 ADD droplet.tgz /home/vcap
 
-ENTRYPOINT ["/launcher"]
+ENTRYPOINT ["/packs/launcher"]
