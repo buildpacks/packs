@@ -32,9 +32,12 @@ func main() {
 
 	var (
 		extraArgs      []string
-		appDir         = "/tmp/app"
-		buildDir       = config.BuildDir()
+		workingDir     = pwd()
+		appZip         = os.Getenv("PACK_APP_ZIP")
+		appDir         = config.BuildDir()
 		cacheDir       = config.BuildArtifactsCacheDir()
+		cacheTar       = config.OutputBuildArtifactsCache()
+		cacheTarDir    = filepath.Dir(cacheTar)
 		dropletDir     = filepath.Dir(config.OutputDroplet())
 		metadataDir    = filepath.Dir(config.OutputMetadata())
 		buildpackConf  = filepath.Join(config.BuildpacksDir(), "config.json")
@@ -42,15 +45,18 @@ func main() {
 		skipDetect     = config.SkipDetect()
 	)
 
-	if _, err := os.Stat(appDir); os.IsNotExist(err) {
-		if zip := buildDir; isZip(zip) {
-			copyZip(zip, appDir)
-		} else {
-			copyApp(buildDir, appDir)
-		}
+	if appZip != "" {
+		copyAppZip(appZip, appDir)
+	} else if appDir != workingDir {
+		copyAppDir(workingDir, appDir)
 	}
-	extraArgs = append(extraArgs, "-buildDir", appDir)
-	ensureDirs(appDir, cacheDir, dropletDir, metadataDir, "/home/vcap/tmp")
+
+	if _, err := os.Stat(cacheTar); err == nil {
+		untar(cacheTar, cacheDir)
+	}
+
+	ensure(dropletDir, metadataDir, cacheTarDir)
+	ensureAll(appDir, cacheDir, "/home/vcap/tmp")
 	addBuildpacks("/buildpacks", config.BuildpackPath)
 
 	if strings.Join(buildpackOrder, "") == "" && !skipDetect {
@@ -73,7 +79,7 @@ func main() {
 	check(err, CodeFailedBuild, "build")
 }
 
-func copyApp(src, dst string) {
+func copyAppDir(src, dst string) {
 	copier := appfiles.ApplicationFiles{}
 	files, err := copier.AppFilesInDir(src)
 	check(err, CodeFailedSetup, "analyze app")
@@ -81,26 +87,31 @@ func copyApp(src, dst string) {
 	check(err, CodeFailedSetup, "copy app")
 }
 
-func copyZip(src, dst string) {
+func copyAppZip(src, dst string) {
 	zipper := appfiles.ApplicationZipper{}
 	tmpDir, err := ioutil.TempDir("", "pack")
 	check(err, CodeFailedSetup, "create temp dir")
 	defer os.RemoveAll(tmpDir)
 	err = zipper.Unzip(src, tmpDir)
 	check(err, CodeFailedSetup, "unzip app")
-	copyApp(tmpDir, dst)
+	copyAppDir(tmpDir, dst)
 }
 
-func isZip(path string) bool {
-	zipper := appfiles.ApplicationZipper{}
-	return zipper.IsZipFile(path)
-}
-
-func ensureDirs(dirs ...string) {
+func ensure(dirs ...string) {
 	for _, dir := range dirs {
 		err := os.MkdirAll(dir, 0777)
-		check(err, CodeFailedSetup, "ensure directory", dir)
-		chownAll("vcap", "vcap", dir)
+		check(err, CodeFailedSetup, "make directory", dir)
+		err = exec.Command("chown", "vcap:vcap", dir).Run()
+		check(err, CodeFailedSetup, "chown", dir, "to vcap:vcap")
+	}
+}
+
+func ensureAll(dirs ...string) {
+	for _, dir := range dirs {
+		err := os.MkdirAll(dir, 0777)
+		check(err, CodeFailedSetup, "make directory", dir)
+		err = exec.Command("chown", "-R", "vcap:vcap", dir).Run()
+		check(err, CodeFailedSetup, "recursively chown", dir, "to", "vcap:vcap")
 	}
 }
 
@@ -153,9 +164,17 @@ func unzip(zip, dst string) {
 	check(err, CodeFailedSetup, "unzip", zip, "to", dst)
 }
 
-func chownAll(user, group, path string) {
-	err := exec.Command("chown", "-R", user+":"+group, path).Run()
-	check(err, CodeFailedSetup, "chown", path, "to", user+"/"+group)
+func untar(tar, dst string) {
+	err := os.MkdirAll(dst, 0777)
+	check(err, CodeFailedSetup, "ensure directory", dst)
+	err = exec.Command("tar", "-C", dst, "-xzf", tar).Run()
+	check(err, CodeFailedSetup, "untar", tar, "to", dst)
+}
+
+func pwd() string {
+	wd, err := os.Getwd()
+	check(err, CodeFailedSetup, "get working directory")
+	return wd
 }
 
 func userLookup(u string) (uid, gid uint32) {

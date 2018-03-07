@@ -22,10 +22,8 @@ COPY builder /packs/
 ENTRYPOINT [ \
   "/packs/builder", \
   "-buildpacksDir", "/var/lib/buildpacks", \
-  "-buildDir", ".", \
-  "-buildArtifactsCacheDir", "/cache", \
   "-outputDroplet", "/out/droplet.tgz", \
-  "-outputBuildArtifactsCache", "/dev/null", \
+  "-outputBuildArtifactsCache", "/cache/cache.tgz", \
   "-outputMetadata", "/out/result.json" \
 ]
 
