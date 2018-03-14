@@ -54,6 +54,7 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 		}
 		expected := cmpMap{
 			{"CF_INSTANCE_ADDR", "", nil},
+			{"CF_INSTANCE_INTERNAL_IP", "", hostIPCmp},
 			{"CF_INSTANCE_IP", "", hostIPCmp},
 			{"CF_INSTANCE_PORT", "", nil},
 			{"CF_INSTANCE_PORTS", "[]", nil},
@@ -180,10 +181,12 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 			{"CF_INSTANCE_ADDR", ":8080", hostIPCmp},
 			{"CF_INSTANCE_GUID", "", uuidCmp},
 			{"CF_INSTANCE_INDEX", "0", nil},
+			{"CF_INSTANCE_INTERNAL_IP", "", hostIPCmp},
 			{"CF_INSTANCE_IP", "", hostIPCmp},
 			{"CF_INSTANCE_PORT", "8080", nil},
 			{"CF_INSTANCE_PORTS", `[{"external":8080,"internal":8080}]`, nil},
 			{"HOME", "/home/vcap/app", nil},
+			{"INSTANCE_GUID", env["CF_INSTANCE_GUID"], nil},
 			{"INSTANCE_INDEX", "0", nil},
 			{"LANG", "en_US.UTF-8", nil},
 			{"MEMORY_LIMIT", fmt.Sprintf("%dm", *memory), nil},
@@ -191,7 +194,9 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 			{"PORT", "8080", nil},
 			{"TMPDIR", "/home/vcap/tmp", nil},
 			{"USER", "vcap", nil},
+			{"VCAP_APP_HOST", "0.0.0.0", nil},
 			{"VCAP_APPLICATION", string(vcapAppJSON), vcapAppCmp},
+			{"VCAP_APP_PORT", "8080", nil},
 			{"VCAP_SERVICES", "{}", nil},
 		}
 		if v1, v2 := len(env), len(expected); v1 != v2 {

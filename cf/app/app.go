@@ -149,14 +149,15 @@ func (a *App) Stage() map[string]string {
 	}
 
 	appEnv := map[string]string{
-		"CF_INSTANCE_ADDR":  "",
-		"CF_INSTANCE_IP":    a.ip,
-		"CF_INSTANCE_PORT":  "",
-		"CF_INSTANCE_PORTS": "[]",
-		"CF_STACK":          "cflinuxfs2",
-		"MEMORY_LIMIT":      fmt.Sprintf("%dm", limits["mem"]),
-		"VCAP_APPLICATION":  string(vcapApp),
-		"VCAP_SERVICES":     "{}",
+		"CF_INSTANCE_ADDR":        "",
+		"CF_INSTANCE_INTERNAL_IP": a.ip,
+		"CF_INSTANCE_IP":          a.ip,
+		"CF_INSTANCE_PORT":        "",
+		"CF_INSTANCE_PORTS":       "[]",
+		"CF_STACK":                "cflinuxfs2",
+		"MEMORY_LIMIT":            fmt.Sprintf("%dm", limits["mem"]),
+		"VCAP_APPLICATION":        string(vcapApp),
+		"VCAP_SERVICES":           "{}",
 	}
 	a.envOverride(appEnv)
 
@@ -194,18 +195,22 @@ func (a *App) Launch() map[string]string {
 	}
 
 	appEnv := map[string]string{
-		"CF_INSTANCE_ADDR":  a.ip + ":8080",
-		"CF_INSTANCE_GUID":  a.instanceID,
-		"CF_INSTANCE_INDEX": "0",
-		"CF_INSTANCE_IP":    a.ip,
-		"CF_INSTANCE_PORT":  "8080",
-		"CF_INSTANCE_PORTS": `[{"external":8080,"internal":8080}]`,
-		"INSTANCE_INDEX":    "0",
-		"MEMORY_LIMIT":      fmt.Sprintf("%dm", limits["mem"]),
-		"PORT":              "8080",
-		"TMPDIR":            "/home/vcap/tmp",
-		"VCAP_APPLICATION":  string(vcapApp),
-		"VCAP_SERVICES":     "{}",
+		"CF_INSTANCE_ADDR":        a.ip + ":8080",
+		"CF_INSTANCE_GUID":        a.instanceID,
+		"CF_INSTANCE_INDEX":       "0",
+		"CF_INSTANCE_INTERNAL_IP": a.ip,
+		"CF_INSTANCE_IP":          a.ip,
+		"CF_INSTANCE_PORT":        "8080",
+		"CF_INSTANCE_PORTS":       `[{"external":8080,"internal":8080}]`,
+		"INSTANCE_GUID":           a.instanceID,
+		"INSTANCE_INDEX":          "0",
+		"MEMORY_LIMIT":            fmt.Sprintf("%dm", limits["mem"]),
+		"PORT":                    "8080",
+		"TMPDIR":                  "/home/vcap/tmp",
+		"VCAP_APP_HOST":           "0.0.0.0",
+		"VCAP_APPLICATION":        string(vcapApp),
+		"VCAP_APP_PORT":           "8080",
+		"VCAP_SERVICES":           "{}",
 	}
 	a.envOverride(appEnv)
 
