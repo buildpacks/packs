@@ -40,7 +40,8 @@ func main() {
 		cacheTarDir    = filepath.Dir(cacheTar)
 		dropletDir     = filepath.Dir(config.OutputDroplet())
 		metadataDir    = filepath.Dir(config.OutputMetadata())
-		buildpackConf  = filepath.Join(config.BuildpacksDir(), "config.json")
+		buildpacksDir  = config.BuildpacksDir()
+		buildpackConf  = filepath.Join(buildpacksDir, "config.json")
 		buildpackOrder = config.BuildpackOrder()
 		skipDetect     = config.SkipDetect()
 	)
@@ -57,7 +58,7 @@ func main() {
 
 	ensure(dropletDir, metadataDir, cacheTarDir)
 	ensureAll(appDir, cacheDir, "/home/vcap/tmp")
-	addBuildpacks("/buildpacks", config.BuildpackPath)
+	addBuildpacks("/buildpacks", buildpacksDir)
 
 	if strings.Join(buildpackOrder, "") == "" && !skipDetect {
 		extraArgs = append(extraArgs, "-buildpackOrder", reduceJSONFile("name", buildpackConf))
@@ -115,22 +116,21 @@ func ensureAll(dirs ...string) {
 	}
 }
 
-func addBuildpacks(dir string, dest func(string) string) {
-	files, err := ioutil.ReadDir(dir)
+func addBuildpacks(src, dst string) {
+	files, err := ioutil.ReadDir(src)
 	if os.IsNotExist(err) {
 		return
 	}
-	check(err, CodeFailedSetup, "setup buildpacks", dir)
+	check(err, CodeFailedSetup, "setup buildpacks", src)
 
 	for _, f := range files {
 		filename := f.Name()
 		ext := filepath.Ext(filename)
-		if strings.ToLower(ext) != ".zip" {
+		if strings.ToLower(ext) != ".zip" || len(filename) != 36 {
 			continue
 		}
-		zip := filepath.Join(dir, filename)
-		dst := dest(strings.TrimSuffix(filename, ext))
-		unzip(zip, dst)
+		sum := strings.ToLower(strings.TrimSuffix(filename, ext))
+		unzip(filepath.Join(src, filename), filepath.Join(dst, sum))
 	}
 }
 
