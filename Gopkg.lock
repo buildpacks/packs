@@ -15,7 +15,33 @@
 
 [[projects]]
   name = "code.cloudfoundry.org/cli"
-  packages = ["actor/actionerror","api/cloudcontroller","api/cloudcontroller/ccerror","api/cloudcontroller/ccv2","api/cloudcontroller/ccv2/constant","api/cloudcontroller/ccv2/internal","api/cloudcontroller/ccversion","api/plugin/pluginerror","api/uaa","api/uaa/internal","cf/appfiles","cf/errors","cf/formatters","cf/i18n","cf/models","command/translatableerror","i18n/resources","types","util","util/clissh/ssherror","util/configv3","util/glob","util/manifest","util/ui","version"]
+  packages = [
+    "actor/actionerror",
+    "api/cloudcontroller",
+    "api/cloudcontroller/ccerror",
+    "api/cloudcontroller/ccv2",
+    "api/cloudcontroller/ccv2/constant",
+    "api/cloudcontroller/ccv2/internal",
+    "api/cloudcontroller/ccversion",
+    "api/plugin/pluginerror",
+    "api/uaa",
+    "api/uaa/internal",
+    "cf/appfiles",
+    "cf/errors",
+    "cf/formatters",
+    "cf/i18n",
+    "cf/models",
+    "command/translatableerror",
+    "i18n/resources",
+    "types",
+    "util",
+    "util/clissh/ssherror",
+    "util/configv3",
+    "util/glob",
+    "util/manifest",
+    "util/ui",
+    "version"
+  ]
   revision = "bbdf81482f6cfa6281b1937f23cea3162b976351"
   version = "v6.34.1"
 
@@ -27,7 +53,12 @@
 
 [[projects]]
   name = "github.com/SermoDigital/jose"
-  packages = [".","crypto","jws","jwt"]
+  packages = [
+    ".",
+    "crypto",
+    "jws",
+    "jwt"
+  ]
   revision = "f6df55f235c24f236d11dbcf665249a59ac2021f"
   version = "1.1"
 
@@ -94,7 +125,10 @@
 [[projects]]
   branch = "master"
   name = "github.com/vito/go-interact"
-  packages = ["interact","interact/terminal"]
+  packages = [
+    "interact",
+    "interact/terminal"
+  ]
   revision = "fa338ed9e9ecbb0e9c2e6c7a0160d9fc9b0efbd9"
 
 [[projects]]
@@ -106,13 +140,21 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix","windows"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["internal/gen","internal/tag","language","unicode/cldr"]
+  packages = [
+    "internal/gen",
+    "internal/tag",
+    "language",
+    "unicode/cldr"
+  ]
   revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
 
 [[projects]]
@@ -124,6 +166,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9a813118558489e3ba9a8b666692c8c11c63415077d31fa6b206ef5c740a3c4d"
+  inputs-digest = "d82dc3dd6c3c185c19a05252c27f3af03860d33ccf238da087bcd0f84cf8f9b2"
   solver-name = "gps-cdcl"
   solver-version = 1
