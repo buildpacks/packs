@@ -24,14 +24,15 @@ func main() {
 	flag.Parse()
 	command := strings.Join(flag.Args(), " ")
 
-	supplyApp(inputSluglet, "/home/heroku/")
-	chownAll("heroku", "heroku", "/home/heroku/app")
+	supplyApp(inputSluglet, "/")
 
-	err := os.Chdir("/home/heroku/app")
+	chownAll("heroku", "heroku", "/app")
+
+	err := os.Chdir("/app")
 	check(err, CodeFailedSetup, "change directory")
 
 	if command == "" {
-		command = readCommand("/home/heroku/staging_info.yml")
+		command = readCommand("/staging_info.yml")
 	}
 
 	app, err := herokuapp.New()
@@ -41,7 +42,7 @@ func main() {
 		check(err, CodeFailedEnv, "set app env")
 	}
 
-	args := []string{"/lifecycle/launcher", "/home/heroku/app", command, ""}
+	args := []string{"/lifecycle/launcher", "/app", command, ""}
 	err = syscall.Exec("/lifecycle/launcher", args, os.Environ())
 	check(err, CodeFailedLaunch, "launch")
 }

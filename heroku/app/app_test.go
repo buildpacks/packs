@@ -1,12 +1,8 @@
 package app_test
 
 import (
-	"encoding/json"
 	"flag"
-	"fmt"
 	"os/exec"
-	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -44,108 +40,19 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 	it("should return the default staging env", func() {
 		env := app.Stage()
 
-		vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])
-		if err != nil {
-			t.Fatalf("Error: %s\n", err)
-		}
-		vcapAppJSON, err := json.Marshal(vcapApp)
-		if err != nil {
-			t.Fatalf("Error: %s\n", err)
-		}
 		expected := cmpMap{
-			{"CF_INSTANCE_ADDR", "", nil},
-			{"CF_INSTANCE_INTERNAL_IP", "", hostIPCmp},
-			{"CF_INSTANCE_IP", "", hostIPCmp},
-			{"CF_INSTANCE_PORT", "", nil},
-			{"CF_INSTANCE_PORTS", "[]", nil},
-			{"CF_STACK", "cflinuxfs2", nil},
-			{"HOME", "/home/vcap", nil},
+			{"STACK", "heroku-16", nil},
+			{"DYNO", "local.1", nil},
+			{"HOME", "/app", nil},
 			{"LANG", "en_US.UTF-8", nil},
-			{"MEMORY_LIMIT", fmt.Sprintf("%dm", *memory), nil},
+			{"TMPDIR", "/tmp", nil},
 			{"PATH", "/usr/local/bin:/usr/bin:/bin", nil},
-			{"USER", "vcap", nil},
-			{"VCAP_APPLICATION", string(vcapAppJSON), vcapAppCmp},
-			{"VCAP_SERVICES", "{}", nil},
+			{"USER", "heroku", nil},
 		}
 		if v1, v2 := len(env), len(expected); v1 != v2 {
 			t.Fatalf("Different lengths: %d != %d\n", v1, v2)
 		}
 		compare(t, env, expected)
-	})
-
-	when("PACK env variables are set", func() {
-		it("should customize the staging env accordingly", func() {
-			set("PACK_APP_NAME", "some-name")
-			set("PACK_APP_URI", "some-uri")
-			set("PACK_APP_DISK", "10")
-			set("PACK_APP_FDS", "20")
-			set("PACK_APP_MEM", "30")
-
-			env := app.Stage()
-
-			if mem := env["MEMORY_LIMIT"]; mem != "30m" {
-				t.Fatalf("Incorrect memory: %d", mem)
-			}
-
-			vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])
-			if err != nil {
-				t.Fatalf("Error: %s\n", err)
-			}
-			vcapApp.ApplicationName = "some-name"
-			vcapApp.ApplicationURIs = []string{"some-uri"}
-			vcapApp.Limits = map[string]uint64{"disk": 10, "fds": 20, "mem": 30}
-			vcapApp.Name = "some-name"
-			vcapApp.SpaceName = "some-name-space"
-			vcapApp.URIs = []string{"some-uri"}
-			vcapAppJSON, err := json.Marshal(vcapApp)
-			if err != nil {
-				t.Fatalf("Error: %s\n", err)
-			}
-			vcapAppCmp(t, env["VCAP_APPLICATION"], string(vcapAppJSON))
-		})
-	})
-
-	when("buildpack env vars are set", func() {
-		it("should always override other values", func() {
-			set("PACK_APP_MEM", "30")
-			set("CF_INSTANCE_IP", "some-ip")
-			set("CF_INSTANCE_PORT", "some-port")
-			set("CF_INSTANCE_PORTS", "some-ports")
-			set("MEMORY_LIMIT", "some-memory")
-
-			env := app.Stage()
-
-			expected := cmpMap{
-				{"CF_INSTANCE_IP", "some-ip", nil},
-				{"CF_INSTANCE_PORT", "some-port", nil},
-				{"CF_INSTANCE_PORTS", "some-ports", nil},
-				{"MEMORY_LIMIT", "some-memory", nil},
-			}
-			compare(t, env, expected)
-		})
-	})
-
-	when("a custom app name is set", func() {
-		it("should use the name for the uri as well", func() {
-			set("PACK_APP_NAME", "some-name")
-
-			env := app.Stage()
-
-			vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])
-			if err != nil {
-				t.Fatalf("Error: %s\n", err)
-			}
-			vcapApp.ApplicationName = "some-name"
-			vcapApp.ApplicationURIs = []string{"some-name.local"}
-			vcapApp.Name = "some-name"
-			vcapApp.SpaceName = "some-name-space"
-			vcapApp.URIs = []string{"some-name.local"}
-			vcapAppJSON, err := json.Marshal(vcapApp)
-			if err != nil {
-				t.Fatalf("Error: %s\n", err)
-			}
-			vcapAppCmp(t, env["VCAP_APPLICATION"], string(vcapAppJSON))
-		})
 	})
 }
 
@@ -165,133 +72,20 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 
 	it("should return the default launch env", func() {
 		env := app.Launch()
-		vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])
-		if err != nil {
-			t.Fatalf("Error: %s\n", err)
-		}
-		vcapApp.Host = "0.0.0.0"
-		vcapApp.InstanceID = env["CF_INSTANCE_GUID"]
-		vcapApp.InstanceIndex = uintPtr(0)
-		vcapApp.Port = uintPtr(5000)
-		vcapAppJSON, err := json.Marshal(vcapApp)
-		if err != nil {
-			t.Fatalf("Error: %s\n", err)
-		}
 		expected := cmpMap{
-			{"CF_INSTANCE_ADDR", ":5000", hostIPCmp},
-			{"CF_INSTANCE_GUID", "", uuidCmp},
-			{"CF_INSTANCE_INDEX", "0", nil},
-			{"CF_INSTANCE_INTERNAL_IP", "", hostIPCmp},
-			{"CF_INSTANCE_IP", "", hostIPCmp},
-			{"CF_INSTANCE_PORT", "5000", nil},
-			{"CF_INSTANCE_PORTS", `[{"external":5000,"internal":5000}]`, nil},
-			{"HOME", "/home/vcap/app", nil},
-			{"INSTANCE_GUID", env["CF_INSTANCE_GUID"], nil},
-			{"INSTANCE_INDEX", "0", nil},
+			{"HOME", "/app", nil},
 			{"LANG", "en_US.UTF-8", nil},
-			{"MEMORY_LIMIT", fmt.Sprintf("%dm", *memory), nil},
 			{"PATH", "/usr/local/bin:/usr/bin:/bin", nil},
 			{"PORT", "5000", nil},
-			{"TMPDIR", "/home/vcap/tmp", nil},
-			{"USER", "vcap", nil},
-			{"VCAP_APP_HOST", "0.0.0.0", nil},
-			{"VCAP_APPLICATION", string(vcapAppJSON), vcapAppCmp},
-			{"VCAP_APP_PORT", "5000", nil},
-			{"VCAP_SERVICES", "{}", nil},
+			{"TMPDIR", "/tmp", nil},
+			{"USER", "heroku", nil},
+			{"STACK", "heroku-16", nil},
+			{"DYNO", "local.1", nil},
 		}
 		if v1, v2 := len(env), len(expected); v1 != v2 {
 			t.Fatalf("Different lengths: %d != %d\n", v1, v2)
 		}
 		compare(t, env, expected)
-	})
-
-	when("PACK env variables are set", func() {
-		it("should customize the launch env accordingly", func() {
-			set("PACK_APP_NAME", "some-name")
-			set("PACK_APP_URI", "some-uri")
-			set("PACK_APP_DISK", "10")
-			set("PACK_APP_FDS", "20")
-			set("PACK_APP_MEM", "30")
-
-			env := app.Launch()
-
-			if mem := env["MEMORY_LIMIT"]; mem != "30m" {
-				t.Fatalf("Incorrect memory: %d", mem)
-			}
-
-			vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])
-			if err != nil {
-				t.Fatalf("Error: %s\n", err)
-			}
-
-			vcapApp.Host = "0.0.0.0"
-			vcapApp.InstanceID = env["CF_INSTANCE_GUID"]
-			vcapApp.InstanceIndex = uintPtr(0)
-			vcapApp.Port = uintPtr(5000)
-
-			vcapApp.ApplicationName = "some-name"
-			vcapApp.ApplicationURIs = []string{"some-uri"}
-			vcapApp.Limits = map[string]uint64{"disk": 10, "fds": 20, "mem": 30}
-			vcapApp.Name = "some-name"
-			vcapApp.SpaceName = "some-name-space"
-			vcapApp.URIs = []string{"some-uri"}
-
-			vcapAppJSON, err := json.Marshal(vcapApp)
-			if err != nil {
-				t.Fatalf("Error: %s\n", err)
-			}
-			vcapAppCmp(t, env["VCAP_APPLICATION"], string(vcapAppJSON))
-		})
-	})
-
-	when("buildpack env vars are set", func() {
-		it("should always override other values", func() {
-			set("PACK_APP_MEM", "30")
-			set("CF_INSTANCE_ADDR", "some-addr")
-			set("CF_INSTANCE_GUID", "some-guid")
-			set("CF_INSTANCE_INDEX", "some-index")
-			set("MEMORY_LIMIT", "some-memory")
-
-			env := app.Launch()
-
-			expected := cmpMap{
-				{"CF_INSTANCE_ADDR", "some-addr", nil},
-				{"CF_INSTANCE_GUID", "some-guid", nil},
-				{"CF_INSTANCE_INDEX", "some-index", nil},
-				{"MEMORY_LIMIT", "some-memory", nil},
-			}
-			compare(t, env, expected)
-		})
-	})
-
-	when("a custom app name is set", func() {
-		it("should use the name for the uri as well", func() {
-			set("PACK_APP_NAME", "some-name")
-
-			env := app.Launch()
-
-			vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])
-			if err != nil {
-				t.Fatalf("Error: %s\n", err)
-			}
-
-			vcapApp.Host = "0.0.0.0"
-			vcapApp.InstanceID = env["CF_INSTANCE_GUID"]
-			vcapApp.InstanceIndex = uintPtr(0)
-			vcapApp.Port = uintPtr(5000)
-
-			vcapApp.ApplicationName = "some-name"
-			vcapApp.ApplicationURIs = []string{"some-name.local"}
-			vcapApp.Name = "some-name"
-			vcapApp.SpaceName = "some-name-space"
-			vcapApp.URIs = []string{"some-name.local"}
-
-			vcapAppJSON, err := json.Marshal(vcapApp)
-			if err != nil {
-				t.Fatalf("Error: %s\n", err)
-			}
-			vcapAppCmp(t, env["VCAP_APPLICATION"], string(vcapAppJSON))
-		})
 	})
 }
 
@@ -324,73 +118,6 @@ func hostIPCmp(t *testing.T, ip, suffix string) {
 	if expected := strings.TrimSpace(string(out)) + suffix; ip != expected {
 		t.Fatalf("Mismatched IP: %s != %s\n", ip, expected)
 	}
-}
-
-func vcapAppExpect(vcapAppJSON string) (pkgapp.VCAPApplication, error) {
-	var vcapApp pkgapp.VCAPApplication
-	if err := json.Unmarshal([]byte(vcapAppJSON), &vcapApp); err != nil {
-		return pkgapp.VCAPApplication{}, err
-	}
-	ulimit, err := exec.Command("bash", "-c", "ulimit -n").Output()
-	if err != nil {
-		return pkgapp.VCAPApplication{}, err
-	}
-	fds, err := strconv.ParseUint(strings.TrimSpace(string(ulimit)), 10, 64)
-	if err != nil {
-		return pkgapp.VCAPApplication{}, err
-	}
-	return pkgapp.VCAPApplication{
-		ApplicationID:      vcapApp.ApplicationID,
-		ApplicationName:    "app",
-		ApplicationURIs:    []string{"app.local"},
-		ApplicationVersion: vcapApp.ApplicationVersion,
-		Limits:             map[string]uint64{"disk": 1024, "fds": fds, "mem": *memory},
-		Name:               "app",
-		SpaceID:            vcapApp.SpaceID,
-		SpaceName:          "app-space",
-		URIs:               []string{"app.local"},
-		Version:            vcapApp.Version,
-	}, nil
-}
-
-func vcapAppCmp(t *testing.T, va1, va2 string) {
-	t.Helper()
-	var vcapApp1 pkgapp.VCAPApplication
-	if err := json.Unmarshal([]byte(va1), &vcapApp1); err != nil {
-		t.Fatalf("Error: %s\n", err)
-	}
-	var vcapApp2 pkgapp.VCAPApplication
-	if err := json.Unmarshal([]byte(va2), &vcapApp2); err != nil {
-		t.Fatalf("Error: %s\n", err)
-	}
-	if !reflect.DeepEqual(vcapApp1, vcapApp2) {
-		t.Fatalf("Mismatched VCAP_APPLICATION:\n%#v\n!=\n%#v\n", vcapApp1, vcapApp2)
-	}
-
-	set := map[string]struct{}{}
-	total := 0
-	for _, uuid := range []string{
-		vcapApp1.ApplicationID,
-		vcapApp1.SpaceID,
-		vcapApp1.Version,
-		vcapApp1.InstanceID,
-	} {
-		if uuid != "" {
-			uuidCmp(t, uuid, "")
-			set[uuid] = struct{}{}
-			total++
-		}
-	}
-	if l := len(set); l != total {
-		t.Fatalf("Duplicate UUIDs: %d\n", total-l)
-	}
-	if v1, v2 := vcapApp1.Version, vcapApp2.ApplicationVersion; v1 != v2 {
-		t.Fatalf("Mismatched version UUIDs: %s != %s\n", v1, v2)
-	}
-}
-
-func uintPtr(i uint) *uint {
-	return &i
 }
 
 func env() (env func(string) (string, bool), set func(k, v string)) {

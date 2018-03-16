@@ -16,7 +16,7 @@ const (
 )
 
 func main() {
-	err := os.Chdir("/home/heroku/app")
+	err := os.Chdir("/app")
 	check(err, CodeFailedSetup, "change directory")
 
 	app, err := herokuapp.New()
@@ -26,7 +26,7 @@ func main() {
 		check(err, CodeFailedEnv, "set app env")
 	}
 
-	args := append([]string{"/lifecycle/shell", "/home/heroku/app"}, os.Args[1:]...)
+	args := append([]string{"/lifecycle/shell", "/app"}, os.Args[1:]...)
 	err = syscall.Exec("/lifecycle/shell", args, os.Environ())
 	check(err, CodeFailedShell, "run")
 }

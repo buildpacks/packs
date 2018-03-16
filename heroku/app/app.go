@@ -1,9 +1,7 @@
 package app
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -17,23 +15,6 @@ const (
 	cgroupMemLimitPath = "/sys/fs/cgroup/memory/memory.limit_in_bytes"
 	cgroupMemUnlimited = 9223372036854771712
 )
-
-type VCAPApplication struct {
-	ApplicationID      string            `json:"application_id"`
-	ApplicationName    string            `json:"application_name"`
-	ApplicationURIs    []string          `json:"application_uris"`
-	ApplicationVersion string            `json:"application_version"`
-	Host               string            `json:"host,omitempty"`
-	InstanceID         string            `json:"instance_id,omitempty"`
-	InstanceIndex      *uint             `json:"instance_index,omitempty"`
-	Limits             map[string]uint64 `json:"limits"`
-	Name               string            `json:"name"`
-	Port               *uint             `json:"port,omitempty"`
-	SpaceID            string            `json:"space_id"`
-	SpaceName          string            `json:"space_name"`
-	URIs               []string          `json:"uris"`
-	Version            string            `json:"version"`
-}
 
 type App struct {
 	Env func(string) (string, bool)
@@ -123,41 +104,17 @@ func (a *App) config() (name, uri string, limits map[string]uint64) {
 }
 
 func (a *App) Stage() map[string]string {
-	name, uri, limits := a.config()
-
-	vcapApp, err := json.Marshal(&VCAPApplication{
-		ApplicationID:      a.id,
-		ApplicationName:    name,
-		ApplicationURIs:    []string{uri},
-		ApplicationVersion: a.version,
-		Limits:             limits,
-		Name:               name,
-		SpaceID:            a.spaceID,
-		SpaceName:          fmt.Sprintf("%s-space", name),
-		URIs:               []string{uri},
-		Version:            a.version,
-	})
-	if err != nil {
-		vcapApp = []byte("{}")
-	}
-
 	sysEnv := map[string]string{
-		"HOME": "/home/heroku",
-		"LANG": "en_US.UTF-8",
-		"PATH": "/usr/local/bin:/usr/bin:/bin",
-		"USER": "heroku",
+		"HOME":   "/app",
+		"LANG":   "en_US.UTF-8",
+		"PATH":   "/usr/local/bin:/usr/bin:/bin",
+		"TMPDIR": "/tmp",
+		"USER":   "heroku",
 	}
 
 	appEnv := map[string]string{
-		"CF_INSTANCE_ADDR":        "",
-		"CF_INSTANCE_INTERNAL_IP": a.ip,
-		"CF_INSTANCE_IP":          a.ip,
-		"CF_INSTANCE_PORT":        "",
-		"CF_INSTANCE_PORTS":       "[]",
-		"CF_STACK":                "cflinuxfs2",
-		"MEMORY_LIMIT":            fmt.Sprintf("%dm", limits["mem"]),
-		"VCAP_APPLICATION":        string(vcapApp),
-		"VCAP_SERVICES":           "{}",
+		"STACK":                   "heroku-16",
+		"DYNO":                    "local.1",
 	}
 	a.envOverride(appEnv)
 
@@ -165,52 +122,18 @@ func (a *App) Stage() map[string]string {
 }
 
 func (a *App) Launch() map[string]string {
-	name, uri, limits := a.config()
-
-	vcapApp, err := json.Marshal(&VCAPApplication{
-		ApplicationID:      a.id,
-		ApplicationName:    name,
-		ApplicationURIs:    []string{uri},
-		ApplicationVersion: a.version,
-		Host:               "0.0.0.0",
-		InstanceID:         a.instanceID,
-		InstanceIndex:      uintPtr(0),
-		Limits:             limits,
-		Name:               name,
-		Port:               uintPtr(5000),
-		SpaceID:            a.spaceID,
-		SpaceName:          fmt.Sprintf("%s-space", name),
-		URIs:               []string{uri},
-		Version:            a.version,
-	})
-	if err != nil {
-		vcapApp = []byte("{}")
-	}
-
 	sysEnv := map[string]string{
-		"HOME": "/home/heroku/app",
-		"LANG": "en_US.UTF-8",
-		"PATH": "/usr/local/bin:/usr/bin:/bin",
-		"USER": "heroku",
+		"HOME":   "/app",
+		"LANG":   "en_US.UTF-8",
+		"PATH":   "/usr/local/bin:/usr/bin:/bin",
+		"TMPDIR": "/tmp",
+		"USER":   "heroku",
 	}
 
 	appEnv := map[string]string{
-		"CF_INSTANCE_ADDR":        a.ip + ":5000",
-		"CF_INSTANCE_GUID":        a.instanceID,
-		"CF_INSTANCE_INDEX":       "0",
-		"CF_INSTANCE_INTERNAL_IP": a.ip,
-		"CF_INSTANCE_IP":          a.ip,
-		"CF_INSTANCE_PORT":        "5000",
-		"CF_INSTANCE_PORTS":       `[{"external":5000,"internal":5000}]`,
-		"INSTANCE_GUID":           a.instanceID,
-		"INSTANCE_INDEX":          "0",
-		"MEMORY_LIMIT":            fmt.Sprintf("%dm", limits["mem"]),
 		"PORT":                    "5000",
-		"TMPDIR":                  "/home/heroku/tmp",
-		"VCAP_APP_HOST":           "0.0.0.0",
-		"VCAP_APPLICATION":        string(vcapApp),
-		"VCAP_APP_PORT":           "5000",
-		"VCAP_SERVICES":           "{}",
+		"STACK":                   "heroku-16",
+		"DYNO":                    "local.1",
 	}
 	a.envOverride(appEnv)
 
@@ -247,8 +170,4 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 		}
 	}
 	return result
-}
-
-func uintPtr(i uint) *uint {
-	return &i
 }

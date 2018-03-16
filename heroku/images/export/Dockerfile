@@ -8,7 +8,7 @@ WORKDIR /workspace
 RUN mkdir /packs
 RUN ( \
   echo "FROM packs/${stack}:run" && \
-  echo 'ADD sluglet.tgz /home/heroku' && \
+  echo 'ADD sluglet.tgz /' && \
   echo 'ENTRYPOINT ["/packs/launcher"]' \
   ) > /packs/Dockerfile
 COPY export /packs/
