@@ -4,7 +4,7 @@ FROM heroku/${stack}-build
 ARG go_version=1.9.4
 ARG diego_version=1.32.0
 
-RUN useradd -ms /bin/bash heroku
+RUN useradd -ms /bin/bash -d /app heroku
 
 RUN apt-get update -y
 RUN apt-get install -y jq

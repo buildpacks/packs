@@ -4,12 +4,9 @@ set -eo pipefail
 
 cd $(dirname "${BASH_SOURCE[0]}")/..
 
-stack=$1
-if [[ ! -f ${stack}.json ]]; then
-  >&2 echo "No such stack: ${stack}"
-  exit 1
-fi
+stack_version=${1:-"16"}
+stack="heroku-$stack_version"
 
 repo=github.com/sclevine/packs
-docker run --rm -v "$(pwd)/..:/go/src/${repo}" "packs/${stack}-test" "${repo}/cf/app"
-docker run --rm --memory 100m -v "$(pwd)/..:/go/src/${repo}" "packs/${stack}-test" "${repo}/cf/app" -memory 100
+docker run --rm -v "$(pwd)/..:/go/src/${repo}" "packs/${stack}-test" "${repo}/heroku/app"
+docker run --rm --memory 100m -v "$(pwd)/..:/go/src/${repo}" "packs/${stack}-test" "${repo}/heroku/app" -memory 100

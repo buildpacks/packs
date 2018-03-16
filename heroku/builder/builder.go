@@ -38,7 +38,7 @@ func main() {
 		cacheDir       = config.BuildArtifactsCacheDir()
 		cacheTar       = config.OutputBuildArtifactsCache()
 		cacheTarDir    = filepath.Dir(cacheTar)
-		dropletDir     = filepath.Dir(config.OutputDroplet())
+		slugletDir     = filepath.Dir(config.OutputDroplet())
 		metadataDir    = filepath.Dir(config.OutputMetadata())
 		buildpacksDir  = config.BuildpacksDir()
 		buildpackConf  = filepath.Join(buildpacksDir, "config.json")
@@ -56,8 +56,8 @@ func main() {
 		untar(cacheTar, cacheDir)
 	}
 
-	ensure(dropletDir, metadataDir, cacheTarDir)
-	ensureAll(appDir, cacheDir, "/home/heroku/tmp")
+	ensure(slugletDir, metadataDir, cacheTarDir)
+	ensureAll(appDir, cacheDir, "/tmp")
 	addBuildpacks("/buildpacks", buildpacksDir)
 
 	if strings.Join(buildpackOrder, "") == "" && !skipDetect {
