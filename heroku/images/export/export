@@ -4,4 +4,3 @@ set -euo pipefail
 
 cp -f /packs/Dockerfile .
 docker build --no-cache -t "$1" .
-docker push "$1"
