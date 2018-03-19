@@ -19,12 +19,12 @@ const (
 )
 
 func main() {
-	var inputSluglet string
-	flag.StringVar(&inputSluglet, "inputSluglet", "/tmp/sluglet", "file containing compressed sluglet")
+	var inputDroplet string
+	flag.StringVar(&inputDroplet, "inputDroplet", "/tmp/sluglet", "file containing compressed droplet")
 	flag.Parse()
 	command := strings.Join(flag.Args(), " ")
 
-	supplyApp(inputSluglet, "/")
+	supplyApp(inputDroplet, "/")
 
 	chownAll("heroku", "heroku", "/app")
 

@@ -14,4 +14,4 @@ RUN mkdir /packs
 COPY launcher /packs/
 COPY shell /packs/
 
-ENTRYPOINT ["/packs/launcher", "-inputSluglet", "sluglet.tgz"]
+ENTRYPOINT ["/packs/launcher", "-inputDroplet", "droplet.tgz"]
