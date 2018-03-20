@@ -21,4 +21,4 @@ docker build --build-arg "stack=${stack}" -t "packs/${stack}:export" images/expo
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:export-gcr" images/export-gcr
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:network" images/network
 
-docker build --build-arg "stack=${stack}" -t "packs/${stack}-test" test
+docker build --build-arg "stack=${stack}" -t "packs/${stack}-test" images/test
