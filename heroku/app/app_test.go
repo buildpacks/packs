@@ -1,17 +1,12 @@
 package app_test
 
 import (
-	"flag"
-	"os/exec"
-	"strings"
 	"testing"
 
 	"github.com/sclevine/spec"
 
 	pkgapp "github.com/sclevine/packs/heroku/app"
 )
-
-var memory = flag.Uint64("memory", 1024, "expected memory usage in mb")
 
 type cmpMap []struct {
 	k, v2 string
@@ -99,24 +94,6 @@ func compare(t *testing.T, env map[string]string, cmp cmpMap) {
 		} else if v1 != exp.v2 {
 			t.Fatalf("%s: %s != %s\n", exp.k, v1, exp.v2)
 		}
-	}
-}
-
-func uuidCmp(t *testing.T, uuid, _ string) {
-	t.Helper()
-	if len(uuid) != 36 {
-		t.Fatalf("Invalid UUID: %s\n", uuid)
-	}
-}
-
-func hostIPCmp(t *testing.T, ip, suffix string) {
-	t.Helper()
-	out, err := exec.Command("hostname", "-i").Output()
-	if err != nil {
-		t.Fatalf("Error: %s\n", err)
-	}
-	if expected := strings.TrimSpace(string(out)) + suffix; ip != expected {
-		t.Fatalf("Mismatched IP: %s != %s\n", ip, expected)
 	}
 }
 

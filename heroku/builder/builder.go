@@ -57,7 +57,7 @@ func main() {
 	}
 
 	ensure(slugletDir, metadataDir, cacheTarDir)
-	ensureAll(appDir, cacheDir, "/tmp")
+	ensureAll(appDir, cacheDir)
 	addBuildpacks("/buildpacks", buildpacksDir)
 
 	if strings.Join(buildpackOrder, "") == "" && !skipDetect {

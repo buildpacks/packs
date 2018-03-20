@@ -9,4 +9,3 @@ stack="heroku-$stack_version"
 
 repo=github.com/sclevine/packs
 docker run --rm -v "$(pwd)/..:/go/src/${repo}" "packs/${stack}-test" "${repo}/heroku/app"
-docker run --rm --memory 100m -v "$(pwd)/..:/go/src/${repo}" "packs/${stack}-test" "${repo}/heroku/app" -memory 100

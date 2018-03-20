@@ -12,10 +12,12 @@ GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/build/build
 GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/launcher github.com/sclevine/packs/heroku/launcher
 GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/shell github.com/sclevine/packs/heroku/shell
 
+docker pull "heroku/heroku:${stack_version}-build"
+
 docker build --build-arg "stack=heroku:${stack_version}" -t "packs/${stack}:latest" images/base
 
 docker build --build-arg "stack=${stack}" --build-arg buildpacks="$(<"heroku.json")" -t "packs/${stack}:build" images/build
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:run" images/run
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:export" images/export
 
-docker build --build-arg "stack=${stack}" -t "packs/${stack}-test" test
+docker build --build-arg "stack=${stack}" -t "packs/${stack}-test" images/test

@@ -20,7 +20,7 @@ const (
 
 func main() {
 	var inputDroplet string
-	flag.StringVar(&inputDroplet, "inputDroplet", "/tmp/sluglet", "file containing compressed droplet")
+	flag.StringVar(&inputDroplet, "inputDroplet", "/tmp/droplet", "file containing compressed droplet")
 	flag.Parse()
 	command := strings.Join(flag.Args(), " ")
 
