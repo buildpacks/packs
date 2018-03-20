@@ -14,6 +14,8 @@ GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/build/build
 GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/launcher github.com/sclevine/packs/cf/launcher
 GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/shell github.com/sclevine/packs/cf/shell
 
+docker pull "cloudfoundry/${stack}"
+
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:latest" images/base
 docker build --build-arg "stack=${stack}" --build-arg buildpacks="$(<"${stack}.json")" -t "packs/${stack}:build" images/build
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:run" images/run
