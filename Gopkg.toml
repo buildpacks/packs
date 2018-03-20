@@ -4,7 +4,7 @@
 
 [[constraint]]
   name = "code.cloudfoundry.org/cli"
-  version = "=6.34.1"
+  version = "=6.35.2"
 
 [[constraint]]
   branch = "master"

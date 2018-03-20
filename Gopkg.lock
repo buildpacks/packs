@@ -5,7 +5,7 @@
   branch = "master"
   name = "code.cloudfoundry.org/buildpackapplifecycle"
   packages = ["."]
-  revision = "3746a1e5aa88947bc7ce682bb2843623b9e24907"
+  revision = "2e7286a8f8c9d1dafe3446b44d52a82995f90e3e"
 
 [[projects]]
   branch = "master"
@@ -15,9 +15,32 @@
 
 [[projects]]
   name = "code.cloudfoundry.org/cli"
-  packages = ["actor/actionerror","api/cloudcontroller","api/cloudcontroller/ccerror","api/cloudcontroller/ccv2","api/cloudcontroller/ccv2/constant","api/cloudcontroller/ccv2/internal","api/cloudcontroller/ccversion","api/plugin/pluginerror","api/uaa","api/uaa/internal","cf/appfiles","cf/errors","cf/formatters","cf/i18n","cf/models","command/translatableerror","i18n/resources","types","util","util/clissh/ssherror","util/configv3","util/glob","util/manifest","util/ui","version"]
-  revision = "bbdf81482f6cfa6281b1937f23cea3162b976351"
-  version = "v6.34.1"
+  packages = [
+    "actor/actionerror",
+    "api/cloudcontroller/ccerror",
+    "api/cloudcontroller/ccv2/constant",
+    "api/plugin/pluginerror",
+    "api/uaa",
+    "api/uaa/constant",
+    "api/uaa/internal",
+    "cf/appfiles",
+    "cf/errors",
+    "cf/formatters",
+    "cf/i18n",
+    "cf/models",
+    "command/translatableerror",
+    "i18n/resources",
+    "types",
+    "util",
+    "util/clissh/ssherror",
+    "util/configv3",
+    "util/glob",
+    "util/manifest",
+    "util/ui",
+    "version"
+  ]
+  revision = "88a03e995eff43161b1e0c64d67edadc2e8c6db1"
+  version = "v6.35.2"
 
 [[projects]]
   branch = "master"
@@ -27,7 +50,12 @@
 
 [[projects]]
   name = "github.com/SermoDigital/jose"
-  packages = [".","crypto","jws","jwt"]
+  packages = [
+    ".",
+    "crypto",
+    "jws",
+    "jwt"
+  ]
   revision = "f6df55f235c24f236d11dbcf665249a59ac2021f"
   version = "1.1"
 
@@ -36,12 +64,6 @@
   packages = ["."]
   revision = "2ee87856327ba09384cabd113bc6b5d174e9ec0f"
   version = "v3.5.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/bmizerany/pat"
-  packages = ["."]
-  revision = "6226ea591a40176dd3ff9cd8eff81ed6ca721a00"
 
 [[projects]]
   name = "github.com/fatih/color"
@@ -71,7 +93,7 @@
   branch = "master"
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
-  revision = "97311d9f7767e3d6f422ea06661bc2c7a19e8a5d"
+  revision = "a9d6d1e4dc51df2130326793d49971f238839169"
 
 [[projects]]
   branch = "master"
@@ -82,48 +104,56 @@
 [[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
-  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
-  version = "v1.0.4"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/tedsuo/rata"
-  packages = ["."]
-  revision = "07d200713958d05692ac35aa8b5f1949342fee80"
+  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
+  version = "v1.0.5"
 
 [[projects]]
   branch = "master"
   name = "github.com/vito/go-interact"
-  packages = ["interact","interact/terminal"]
+  packages = [
+    "interact",
+    "interact/terminal"
+  ]
   revision = "fa338ed9e9ecbb0e9c2e6c7a0160d9fc9b0efbd9"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "432090b8f568c018896cd8a0fb0345872bbac6ce"
+  revision = "c3a3ad6d03f7a915c0f7e194b7152974bb73d287"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix","windows"]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  packages = [
+    "unix",
+    "windows"
+  ]
+  revision = "d8e400bc7db4870d786864138af681469693d18c"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["internal/gen","internal/tag","language","unicode/cldr"]
-  revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
+  packages = [
+    "internal/gen",
+    "internal/language",
+    "internal/language/compact",
+    "internal/tag",
+    "language",
+    "unicode/cldr"
+  ]
+  revision = "8c34f848e18c4bd34d02db7f19a0ed1a0a8f5852"
 
 [[projects]]
-  branch = "v2"
+  branch = "off_by_one_scanner_error_line"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
+  revision = "fd70c8694ac38cc10ed519e30c6309aa9cb7bbd9"
+  source = "github.com/vitreuz/yaml"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9a813118558489e3ba9a8b666692c8c11c63415077d31fa6b206ef5c740a3c4d"
+  inputs-digest = "47b8f2d00de3b87e4702585273a5e5628a7b079a97453bac18cda028467bc7ca"
   solver-name = "gps-cdcl"
   solver-version = 1
