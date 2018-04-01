@@ -65,6 +65,7 @@ func main() {
 	}
 
 	uid, gid := userLookup("vcap")
+	setupStdFds()
 	setupEnv()
 
 	cmd := exec.Command("/lifecycle/builder", append(os.Args[1:], extraArgs...)...)
@@ -75,7 +76,6 @@ func main() {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: &syscall.Credential{Uid: uid, Gid: gid},
 	}
-
 	err = cmd.Run()
 	check(err, CodeFailedBuild, "build")
 }
@@ -155,6 +155,14 @@ func setupEnv() {
 		err := os.Setenv(k, v)
 		check(err, CodeFailedEnv, "set app env")
 	}
+}
+
+func setupStdFds() {
+	cmd := exec.Command("chown", "vcap", "/dev/stdout", "/dev/stderr")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	check(err, CodeFailedSetup, "fix permissions of stdout and stderr")
 }
 
 func unzip(zip, dst string) {
