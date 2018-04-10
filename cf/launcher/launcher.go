@@ -27,55 +27,63 @@ func main() {
 	supplyApp(inputDroplet, "/home/vcap")
 	chownAll("vcap", "vcap", "/home/vcap")
 
-	err := os.Chdir("/home/vcap/app")
-	check(err, CodeFailedSetup, "change directory")
+	if err := os.Chdir("/home/vcap/app"); err != nil {
+		fatal(err, CodeFailedSetup, "change directory")
+	}
 
 	if command == "" {
 		command = readCommand("/home/vcap/staging_info.yml")
 	}
 
 	app, err := cfapp.New()
-	check(err, CodeFailedEnv, "build app env")
+	if err != nil {
+		fatal(err, CodeFailedEnv, "build app env")
+	}
 	for k, v := range app.Launch() {
 		err := os.Setenv(k, v)
-		check(err, CodeFailedEnv, "set app env")
+		if err != nil {
+			fatal(err, CodeFailedEnv, "set app env")
+		}
 	}
 
 	args := []string{"/lifecycle/launcher", "/home/vcap/app", command, ""}
-	err = syscall.Exec("/lifecycle/launcher", args, os.Environ())
-	check(err, CodeFailedLaunch, "launch")
+	if err := syscall.Exec("/lifecycle/launcher", args, os.Environ()); err != nil {
+		fatal(err, CodeFailedLaunch, "launch")
+	}
 }
 
 func supplyApp(tgz, dst string) {
 	if _, err := os.Stat(tgz); os.IsNotExist(err) {
 		return
-	} else {
-		check(err, CodeFailedSetup, "stat", tgz)
+	} else if err != nil {
+		fatal(err, CodeFailedSetup, "stat", tgz)
 	}
-	err := exec.Command("tar", "-C", dst, "-xzf", tgz).Run()
-	check(err, CodeFailedSetup, "untar", tgz, "to", dst)
+	if err := exec.Command("tar", "-C", dst, "-xzf", tgz).Run(); err != nil {
+		fatal(err, CodeFailedSetup, "untar", tgz, "to", dst)
+	}
 }
 
 func readCommand(path string) string {
 	stagingInfo, err := os.Open(path)
-	check(err, CodeFailedSetup, "read start command")
+	if err != nil {
+		fatal(err, CodeFailedSetup, "read start command")
+	}
 	var info struct {
 		StartCommand string `json:"start_command"`
 	}
-	err = json.NewDecoder(stagingInfo).Decode(&info)
-	check(err, CodeFailedSetup, "parse start command")
+	if err := json.NewDecoder(stagingInfo).Decode(&info); err != nil {
+		fatal(err, CodeFailedSetup, "parse start command")
+	}
 	return info.StartCommand
 }
 
 func chownAll(user, group, path string) {
-	err := exec.Command("chown", "-R", user+":"+group, path).Run()
-	check(err, CodeFailedSetup, "chown", path, "to", user+":"+group)
+	if err := exec.Command("chown", "-R", user+":"+group, path).Run(); err != nil {
+		fatal(err, CodeFailedSetup, "chown", path, "to", user+":"+group)
+	}
 }
 
-func check(err error, code int, action ...string) {
-	if err == nil {
-		return
-	}
+func fatal(err error, code int, action ...string) {
 	message := "failed to " + strings.Join(action, " ")
 	fmt.Fprintf(os.Stderr, "Error: %s: %s", message, err)
 	os.Exit(code)

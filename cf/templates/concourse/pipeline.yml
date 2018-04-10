@@ -137,4 +137,5 @@ jobs:
           ) > image/Dockerfile
   - put: app-image
     params:
+      load_base: rootfs
       build: image

@@ -16,25 +16,26 @@ const (
 )
 
 func main() {
-	err := os.Chdir("/home/vcap/app")
-	check(err, CodeFailedSetup, "change directory")
-
+	if err := os.Chdir("/home/vcap/app"); err != nil {
+		fatal(err, CodeFailedSetup, "change directory")
+	}
 	app, err := cfapp.New()
-	check(err, CodeFailedEnv, "build app env")
+	if err != nil {
+		fatal(err, CodeFailedEnv, "build app env")
+	}
 	for k, v := range app.Launch() {
-		err := os.Setenv(k, v)
-		check(err, CodeFailedEnv, "set app env")
+		if err := os.Setenv(k, v); err != nil {
+			fatal(err, CodeFailedEnv, "set app env")
+		}
 	}
 
 	args := append([]string{"/lifecycle/shell", "/home/vcap/app"}, os.Args[1:]...)
-	err = syscall.Exec("/lifecycle/shell", args, os.Environ())
-	check(err, CodeFailedShell, "run")
+	if err := syscall.Exec("/lifecycle/shell", args, os.Environ()); err != nil {
+		fatal(err, CodeFailedShell, "run")
+	}
 }
 
-func check(err error, code int, action ...string) {
-	if err == nil {
-		return
-	}
+func fatal(err error, code int, action ...string) {
 	message := "failed to " + strings.Join(action, " ")
 	fmt.Fprintf(os.Stderr, "Error: %s: %s", message, err)
 	os.Exit(code)
