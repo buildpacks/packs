@@ -12,9 +12,13 @@ if [[ $PACK_REGISTRY_GCR = true ]] || [[ $PACK_REGISTRY_GCR = 1 ]]; then
   docker-credential-gcr configure-docker >/dev/null 2>&1
 fi
 
-mkdir -p home/vcap
-tar xzf droplet.tgz -C home/vcap
-chown -R vcap:vcap home
+tmp_dir=$(mktemp -d)
 
-tar czf layer.tgz home
-d8s append "${SRC_IMAGE}" "${1}" layer.tgz
+mkdir -p "${tmp_dir}/home/vcap"
+tar xzf droplet.tgz -C "${tmp_dir}/home/vcap"
+chown -R vcap:vcap "${tmp_dir}/home/vcap"
+
+tar czf "${tmp_dir}/layer.tgz" -C "$tmp_dir" home
+d8s append "$SRC_IMAGE" "$1" "${tmp_dir}/layer.tgz"
+
+rm -rf "$tmp_dir"
