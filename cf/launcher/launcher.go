@@ -25,7 +25,6 @@ func main() {
 	command := strings.Join(flag.Args(), " ")
 
 	supplyApp(inputDroplet, "/home/vcap")
-	chownAll("vcap", "vcap", "/home/vcap")
 
 	if err := os.Chdir("/home/vcap/app"); err != nil {
 		fatal(err, CodeFailedSetup, "change directory")
@@ -40,8 +39,7 @@ func main() {
 		fatal(err, CodeFailedEnv, "build app env")
 	}
 	for k, v := range app.Launch() {
-		err := os.Setenv(k, v)
-		if err != nil {
+		if err := os.Setenv(k, v); err != nil {
 			fatal(err, CodeFailedEnv, "set app env")
 		}
 	}
@@ -75,12 +73,6 @@ func readCommand(path string) string {
 		fatal(err, CodeFailedSetup, "parse start command")
 	}
 	return info.StartCommand
-}
-
-func chownAll(user, group, path string) {
-	if err := exec.Command("chown", "-R", user+":"+group, path).Run(); err != nil {
-		fatal(err, CodeFailedSetup, "chown", path, "to", user+":"+group)
-	}
 }
 
 func fatal(err error, code int, action ...string) {
