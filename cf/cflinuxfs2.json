@@ -1,35 +1,35 @@
 [
   {
     "name": "staticfile_buildpack",
-    "uri": "https://github.com/cloudfoundry/staticfile-buildpack/releases/download/v1.4.24/staticfile-buildpack-v1.4.24.zip"
+    "uri": "https://github.com/cloudfoundry/staticfile-buildpack/releases/download/v1.4.27/staticfile-buildpack-v1.4.27.zip"
   },
   {
     "name": "java_buildpack",
-    "uri": "https://github.com/cloudfoundry/java-buildpack/releases/download/v4.9/java-buildpack-v4.9.zip"
+    "uri": "https://github.com/cloudfoundry/java-buildpack/releases/download/v4.11/java-buildpack-v4.11.zip"
   },
   {
     "name": "ruby_buildpack",
-    "uri": "https://github.com/cloudfoundry/ruby-buildpack/releases/download/v1.7.15/ruby-buildpack-v1.7.15.zip"
+    "uri": "https://github.com/cloudfoundry/ruby-buildpack/releases/download/v1.7.16/ruby-buildpack-v1.7.16.zip"
   },
   {
     "name": "nodejs_buildpack",
-    "uri": "https://github.com/cloudfoundry/nodejs-buildpack/releases/download/v1.6.21/nodejs-buildpack-v1.6.21.zip"
+    "uri": "https://github.com/cloudfoundry/nodejs-buildpack/releases/download/v1.6.22/nodejs-buildpack-v1.6.22.zip"
   },
   {
     "name": "go_buildpack",
-    "uri": "https://github.com/cloudfoundry/go-buildpack/releases/download/v1.8.20/go-buildpack-v1.8.20.zip"
+    "uri": "https://github.com/cloudfoundry/go-buildpack/releases/download/v1.8.21/go-buildpack-v1.8.21.zip"
   },
   {
     "name": "python_buildpack",
-    "uri": "https://github.com/cloudfoundry/python-buildpack/releases/download/v1.6.11/python-buildpack-v1.6.11.zip"
+    "uri": "https://github.com/cloudfoundry/python-buildpack/releases/download/v1.6.14/python-buildpack-v1.6.14.zip"
   },
   {
     "name": "php_buildpack",
-    "uri": "https://github.com/cloudfoundry/php-buildpack/releases/download/v4.3.51/php-buildpack-v4.3.51.zip"
+    "uri": "https://github.com/cloudfoundry/php-buildpack/releases/download/v4.3.52/php-buildpack-v4.3.52.zip"
   },
   {
     "name": "dotnet_core_buildpack",
-    "uri": "https://github.com/cloudfoundry/dotnet-core-buildpack/releases/download/v2.0.5/dotnet-core-buildpack-v2.0.5.zip"
+    "uri": "https://github.com/cloudfoundry/dotnet-core-buildpack/releases/download/v2.0.6/dotnet-core-buildpack-v2.0.6.zip"
   },
   {
     "name": "binary_buildpack",
