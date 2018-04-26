@@ -17,6 +17,7 @@ RUN \
     mkdir -p /var/lib/buildpacks/$key && \
     echo "Unpacking: $name" && \
     tar xvf /tmp/buildpack.tgz -C /var/lib/buildpacks/$key > /dev/null 2>&1 && \
+    chown -R heroku /var/lib/buildpacks/$key && \
     rm /tmp/buildpack.tgz; \
   done
 
