@@ -2,11 +2,18 @@
 
 set -euo pipefail
 
-DST_IMAGE="$1"
+if [[ $# -ne 1 ]]; then
+  >&2 echo "Invalid arguments."
+  exit 1
+fi
+
+if [[ $PACK_REGISTRY_GCR -eq true ]] || [[ $PACK_REGISTRY_GCR -eq 1 ]]; then
+  docker-credential-gcr configure-docker
+fi
 
 mkdir -p home/vcap
 tar xzf droplet.tgz -C home/vcap
 chown -R vcap:vcap home
 
-tar -cvzf layer.tgz home
-d8s append "${SRC_IMAGE}" "${DST_IMAGE}" layer.tgz
+tar czf layer.tgz home
+d8s append "${SRC_IMAGE}" "${1}" layer.tgz
