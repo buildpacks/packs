@@ -7,8 +7,9 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
-if [[ $PACK_REGISTRY_GCR -eq true ]] || [[ $PACK_REGISTRY_GCR -eq 1 ]]; then
-  docker-credential-gcr configure-docker
+if [[ $PACK_REGISTRY_GCR = true ]] || [[ $PACK_REGISTRY_GCR = 1 ]]; then
+  echo "Configuring credentials for GCR."
+  docker-credential-gcr configure-docker >/dev/null 2>&1
 fi
 
 mkdir -p home/vcap
