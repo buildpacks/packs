@@ -21,5 +21,6 @@ docker run --rm -P -v "$(pwd)/out:/workspace" packs/cf:run
 
 Export:
 ```bash
-docker run --rm -v "$(pwd)/out:/workspace" -v /var/run/docker.sock:/var/run/docker.sock packs/cf:export my-image
+docker run --rm -v "$(pwd)/out:/workspace" packs/cf:export my-image
 ```
+*Note: requires registry credentials*
