@@ -19,6 +19,6 @@ tar xzf droplet.tgz -C "${tmp_dir}/home/vcap"
 chown -R vcap:vcap "${tmp_dir}/home/vcap"
 
 tar czf "${tmp_dir}/layer.tgz" -C "$tmp_dir" home
-d8s append "$SRC_IMAGE" "$1" "${tmp_dir}/layer.tgz"
+crane append "$SRC_IMAGE" "$1" "${tmp_dir}/layer.tgz"
 
 rm -rf "$tmp_dir"
