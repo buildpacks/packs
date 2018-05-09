@@ -3,8 +3,6 @@ FROM packs/${stack}
 
 ARG port=8080
 
-WORKDIR /workspace
-
 EXPOSE ${port}
 
 HEALTHCHECK --interval=30s --timeout=1s --start-period=60s --retries=1 \
@@ -16,4 +14,8 @@ COPY shell /packs/
 
 USER vcap
 
-ENTRYPOINT ["/packs/launcher", "-inputDroplet", "droplet.tgz"]
+WORKDIR /workspace
+
+ENV PACK_DROPLET_PATH ./droplet.tgz
+
+ENTRYPOINT ["/packs/launcher"]

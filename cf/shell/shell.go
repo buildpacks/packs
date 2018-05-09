@@ -15,8 +15,10 @@ const (
 	CodeFailedShell
 )
 
+const appDir = "/home/vcap/app"
+
 func main() {
-	if err := os.Chdir("/home/vcap/app"); err != nil {
+	if err := os.Chdir(appDir); err != nil {
 		fatal(err, CodeFailedSetup, "change directory")
 	}
 	app, err := cfapp.New()
@@ -29,7 +31,7 @@ func main() {
 		}
 	}
 
-	args := append([]string{"/lifecycle/shell", "/home/vcap/app"}, os.Args[1:]...)
+	args := append([]string{"/lifecycle/shell", appDir}, os.Args[1:]...)
 	if err := syscall.Exec("/lifecycle/shell", args, os.Environ()); err != nil {
 		fatal(err, CodeFailedShell, "run")
 	}

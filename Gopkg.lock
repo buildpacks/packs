@@ -73,6 +73,31 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/google/go-containerregistry"
+  packages = [
+    "authn",
+    "name",
+    "v1",
+    "v1/empty",
+    "v1/mutate",
+    "v1/partial",
+    "v1/random",
+    "v1/remote",
+    "v1/remote/transport",
+    "v1/tarball",
+    "v1/types",
+    "v1/v1util"
+  ]
+  revision = "0ff1db03aaaabc9820e8a13353f61d8474814abd"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/google/image-rebase"
+  packages = ["pkg/rebase"]
+  revision = "5bf869a79af99938daff930d0d78d489ffd417e4"
+
+[[projects]]
+  branch = "master"
   name = "github.com/lunixbochs/vtclean"
   packages = ["."]
   revision = "d14193dfc626125c831501c1c42340b4248e1f5a"
@@ -154,6 +179,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "47b8f2d00de3b87e4702585273a5e5628a7b079a97453bac18cda028467bc7ca"
+  inputs-digest = "6778db25f3a7478a99c843eaa609c23b2769b767569512afb85abe12ead99f0f"
   solver-name = "gps-cdcl"
   solver-version = 1

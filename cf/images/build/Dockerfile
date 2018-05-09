@@ -3,8 +3,6 @@ FROM packs/${stack}
 
 ARG buildpacks
 
-WORKDIR /workspace
-
 RUN \
   mkdir /var/lib/buildpacks && \
   echo "${buildpacks}" > /var/lib/buildpacks/config.json && \
@@ -18,6 +16,8 @@ RUN \
 
 RUN mkdir /packs
 COPY builder /packs/
+
+WORKDIR /workspace
 
 ENTRYPOINT [ \
   "/packs/builder", \

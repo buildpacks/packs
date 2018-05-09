@@ -3,8 +3,6 @@ FROM packs/${stack}
 
 ARG port=8080
 
-WORKDIR /workspace
-
 EXPOSE ${port}
 
 RUN \
@@ -13,3 +11,5 @@ RUN \
   rm -rf /var/lib/apt/lists/*
 
 USER vcap
+
+WORKDIR /workspace
