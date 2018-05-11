@@ -107,6 +107,11 @@ func fail(err error, action ...string) error {
 
 func fatal(err error, code int, action ...string) {
 	message := "failed to " + strings.Join(action, " ")
-	fmt.Fprintf(os.Stderr, "Error: %s: %s", message, err)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s: %s\n", message, err)
+	} else {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", message)
+	}
 	os.Exit(code)
 }
+

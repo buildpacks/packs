@@ -37,7 +37,7 @@ func main() {
 
 	repo := flag.Arg(0)
 	if flag.NArg() != 1 || repo == "" {
-		fatal(nil, CodeInvalidArgs, "invalid argument")
+		fatal(nil, CodeInvalidArgs, "parse arguments")
 	}
 	registry := strings.ToLower(strings.SplitN(repo, "/", 2)[0])
 	if err := configureCreds(registry, "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
@@ -45,18 +45,18 @@ func main() {
 	}
 
 	var (
-		oldStack string
-		newStack string
+		oldStackDigest string
+		newStackRef    string
 	)
 	if dropletTgz != "" {
-		newStack = stackImg
+		newStackRef = stackImg
 		var err error
-		oldStack, err = appendDroplet(stackImg, repo, dropletTgz)
+		oldStackDigest, err = appendDroplet(stackImg, repo, dropletTgz)
 		if err != nil {
 			fatal(err, CodeFailedExport, "append droplet")
 		}
 	}
-	if err := rebaseDroplet(repo, newStack, oldStack); err != nil {
+	if err := rebaseDroplet(repo, oldStackDigest, newStackRef); err != nil {
 		fatal(err, CodeFailedRebase, "rebase droplet")
 	}
 }
@@ -81,9 +81,6 @@ func appendDroplet(stackImg, dstImg, dropletTgz string) (stackDigest string, err
 		return "", fail(err, "recursively chown", dropletDir, "to", "vcap:vcap")
 	}
 	if err := runCmd("tar", "-C", tmpDir, "-czf", layerTGZ, "home"); err != nil {
-		return "", fail(err, "tar", tmpDir, "to", layerTGZ)
-	}
-	if err := runCmd("crane", "append", stackImg, dstImg, layerTGZ); err != nil {
 		return "", fail(err, "tar", tmpDir, "to", layerTGZ)
 	}
 	stackDigest, err = appendLayer(stackImg, dstImg, layerTGZ)
@@ -119,7 +116,7 @@ func appendLayer(src, dst, tar string) (srcDigest string, err error) {
 		return "", err
 	}
 
-	image, err := mutate.AppendLayers(srcImage, layer)
+	dstImage, err := mutate.AppendLayers(srcImage, layer)
 	if err != nil {
 		return "", err
 	}
@@ -139,12 +136,12 @@ func appendLayer(src, dst, tar string) (srcDigest string, err error) {
 		return "", err
 	}
 	srcDigest = srcRef.Context().Name() + "@" + srcDigestHash.String()
-	return srcDigest, remote.Write(dstTag, image, dstAuth, http.DefaultTransport, opts)
+	return srcDigest, remote.Write(dstTag, dstImage, dstAuth, http.DefaultTransport, opts)
 }
 
-func rebaseDroplet(img, newStackImg, oldStackDigest string) error {
+func rebaseDroplet(img, oldStackDigest, newStackRef string) error {
 	rebaser := rebase.New(authn.DefaultKeychain, http.DefaultTransport)
-	return rebaser.Rebase(img, oldStackDigest, newStackImg, img)
+	return rebaser.Rebase(img, oldStackDigest, newStackRef, img)
 }
 
 func configureCreds(registry, domain, command string, args ...string) error {
@@ -165,9 +162,9 @@ func fail(err error, action ...string) error {
 func fatal(err error, code int, action ...string) {
 	message := "failed to " + strings.Join(action, " ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s: %s", message, err)
+		fmt.Fprintf(os.Stderr, "Error: %s: %s\n", message, err)
 	} else {
-		fmt.Fprintf(os.Stderr, "Error: %s", message)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", message)
 	}
 	os.Exit(code)
 }

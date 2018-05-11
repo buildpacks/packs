@@ -10,17 +10,21 @@ if [[ ! -f ${stack}.json ]]; then
   exit 1
 fi
 
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/build/builder github.com/sclevine/packs/cf/builder
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/launcher github.com/sclevine/packs/cf/launcher
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/export/exporter github.com/sclevine/packs/cf/exporter
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/shell github.com/sclevine/packs/cf/shell
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/build/builder github.com/sclevine/packs/cf/cmd/builder
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/launcher github.com/sclevine/packs/cf/cmd/launcher
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/export/exporter github.com/sclevine/packs/cf/cmd/exporter
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/export/inspector github.com/sclevine/packs/cf/cmd/inspector
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/shell github.com/sclevine/packs/cf/cmd/shell
 
 docker pull "cloudfoundry/${stack}"
 
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:latest" images/base
+docker build --build-arg "stack=${stack}" -t "packs/${stack}:registry" images/registry
+
 docker build --build-arg "stack=${stack}" --build-arg buildpacks="$(<"${stack}.json")" -t "packs/${stack}:build" images/build
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:run" images/run
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:export" images/export
+docker build --build-arg "stack=${stack}" -t "packs/${stack}:inspect" images/inspect
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:network" images/network
 
 docker build --build-arg "stack=${stack}" -t "packs/${stack}-test" images/test

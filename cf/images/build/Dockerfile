@@ -26,4 +26,3 @@ ENTRYPOINT [ \
   "-outputBuildArtifactsCache", "/cache/cache.tgz", \
   "-outputMetadata", "/out/result.json" \
 ]
-
