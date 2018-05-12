@@ -8,7 +8,7 @@ EXPOSE ${port}
 HEALTHCHECK --interval=30s --timeout=1s --start-period=60s --retries=1 \
   CMD curl -f http://localhost:${port}/ || exit 1
 
-RUN mkdir /packs
+RUN mkdir -p /packs
 COPY launcher /packs/
 COPY shell /packs/
 

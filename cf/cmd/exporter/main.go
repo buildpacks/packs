@@ -29,10 +29,10 @@ const (
 func main() {
 	var (
 		dropletTgz string
-		stackImg   string
+		stackRef   string
 	)
 	flag.StringVar(&dropletTgz, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
-	flag.StringVar(&stackImg, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
+	flag.StringVar(&stackRef, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
 	flag.Parse()
 
 	repo := flag.Arg(0)
@@ -47,11 +47,11 @@ func main() {
 	var (
 		oldStackDigest string
 		newStackRef    string
+		err            error
 	)
 	if dropletTgz != "" {
-		newStackRef = stackImg
-		var err error
-		oldStackDigest, err = appendDroplet(stackImg, repo, dropletTgz)
+		newStackRef = stackRef
+		oldStackDigest, err = appendDroplet(stackRef, repo, dropletTgz)
 		if err != nil {
 			fatal(err, CodeFailedExport, "append droplet")
 		}

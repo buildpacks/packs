@@ -28,7 +28,7 @@ type Metadata struct {
 
 func main() {
 	var metadataPath string
-	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_IMAGE_METADATA_PATH"), "base image for stack")
+	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_IMAGE_METADATA_PATH"), "path for image metadata output")
 	flag.Parse()
 
 	input := flag.Arg(0)
