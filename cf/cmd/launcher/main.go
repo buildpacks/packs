@@ -3,21 +3,12 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"syscall"
 
-	"bytes"
-
 	cfapp "github.com/sclevine/packs/cf/app"
-)
-
-const (
-	CodeFailedEnv = iota + 1
-	CodeFailedSetup
-	CodeFailedLaunch
+	"github.com/sclevine/packs/cf/sys"
 )
 
 const (
@@ -34,34 +25,34 @@ func main() {
 	command := strings.Join(flag.Args(), " ")
 
 	if err := supplyApp(droplet, homeDir); err != nil {
-		fatal(err, CodeFailedSetup, "supply app")
+		sys.Fatal(err, sys.CodeFailed, "supply app")
 	}
 
 	if err := os.Chdir(appDir); err != nil {
-		fatal(err, CodeFailedSetup, "change directory to", appDir)
+		sys.Fatal(err, sys.CodeFailed, "change directory to", appDir)
 	}
 
 	if command == "" {
 		var err error
 		command, err = readCommand(stagingInfoFile)
 		if err != nil {
-			fatal(err, CodeFailedSetup, "determine start command")
+			sys.Fatal(err, sys.CodeFailed, "determine start command")
 		}
 	}
 
 	app, err := cfapp.New()
 	if err != nil {
-		fatal(err, CodeFailedEnv, "build app env")
+		sys.Fatal(err, sys.CodeInvalidEnv, "build app env")
 	}
 	for k, v := range app.Launch() {
 		if err := os.Setenv(k, v); err != nil {
-			fatal(err, CodeFailedEnv, "set app env")
+			sys.Fatal(err, sys.CodeInvalidEnv, "set app env")
 		}
 	}
 
 	args := []string{"/lifecycle/launcher", appDir, command, ""}
 	if err := syscall.Exec("/lifecycle/launcher", args, os.Environ()); err != nil {
-		fatal(err, CodeFailedLaunch, "launch")
+		sys.Fatal(err, sys.CodeFailedLaunch, "launch")
 	}
 }
 
@@ -69,10 +60,10 @@ func supplyApp(tgz, dst string) error {
 	if _, err := os.Stat(tgz); os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
-		return fail(err, "stat", tgz)
+		return sys.Fail(err, "stat", tgz)
 	}
-	if err := runCmd("tar", "-C", dst, "-xzf", tgz); err != nil {
-		return fail(err, "untar", tgz, "to", dst)
+	if _, err := sys.Run("tar", "-C", dst, "-xzf", tgz); err != nil {
+		return sys.Fail(err, "untar", tgz, "to", dst)
 	}
 	return nil
 }
@@ -80,38 +71,13 @@ func supplyApp(tgz, dst string) error {
 func readCommand(path string) (string, error) {
 	stagingInfo, err := os.Open(path)
 	if err != nil {
-		return "", fail(err, "read start command")
+		return "", sys.Fail(err, "read start command")
 	}
 	var info struct {
 		StartCommand string `json:"start_command"`
 	}
 	if err := json.NewDecoder(stagingInfo).Decode(&info); err != nil {
-		return "", fail(err, "parse start command")
+		return "", sys.Fail(err, "parse start command")
 	}
 	return info.StartCommand, nil
 }
-
-func runCmd(name string, arg ...string) error {
-	buf := &bytes.Buffer{}
-	cmd := exec.Command(name, arg...)
-	cmd.Stderr = buf
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%s failed: %s\n%s", name, err, buf.String())
-	}
-}
-
-func fail(err error, action ...string) error {
-	message := "failed to " + strings.Join(action, " ")
-	return fmt.Errorf("%s: %s", message, err)
-}
-
-func fatal(err error, code int, action ...string) {
-	message := "failed to " + strings.Join(action, " ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s: %s\n", message, err)
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", message)
-	}
-	os.Exit(code)
-}
-

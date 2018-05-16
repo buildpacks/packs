@@ -1,49 +1,30 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"strings"
 	"syscall"
 
 	cfapp "github.com/sclevine/packs/cf/app"
-)
-
-const (
-	CodeFailedEnv = iota + 1
-	CodeFailedSetup
-	CodeFailedShell
+	"github.com/sclevine/packs/cf/sys"
 )
 
 const appDir = "/home/vcap/app"
 
 func main() {
 	if err := os.Chdir(appDir); err != nil {
-		fatal(err, CodeFailedSetup, "change directory")
+		sys.Fatal(err, sys.CodeFailed, "change directory")
 	}
 	app, err := cfapp.New()
 	if err != nil {
-		fatal(err, CodeFailedEnv, "build app env")
+		sys.Fatal(err, sys.CodeInvalidEnv, "build app env")
 	}
 	for k, v := range app.Launch() {
 		if err := os.Setenv(k, v); err != nil {
-			fatal(err, CodeFailedEnv, "set app env")
+			sys.Fatal(err, sys.CodeInvalidEnv, "set app env")
 		}
 	}
-
 	args := append([]string{"/lifecycle/shell", appDir}, os.Args[1:]...)
 	if err := syscall.Exec("/lifecycle/shell", args, os.Environ()); err != nil {
-		fatal(err, CodeFailedShell, "run")
+		sys.Fatal(err, sys.CodeFailedLaunch, "run")
 	}
 }
-
-func fatal(err error, code int, action ...string) {
-	message := "failed to " + strings.Join(action, " ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s: %s\n", message, err)
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", message)
-	}
-	os.Exit(code)
-}
-

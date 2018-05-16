@@ -1,24 +1,17 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
-
-	"flag"
 
 	"github.com/google/go-containerregistry/authn"
 	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1/remote"
-	"encoding/json"
-)
 
-const (
-	CodeNotFound = iota + 1
-	CodeFailedParse
-	CodeFailedInspect
-	CodeInvalidArgs
+	"github.com/sclevine/packs/cf/sys"
 )
 
 type Metadata struct {
@@ -33,20 +26,20 @@ func main() {
 
 	input := flag.Arg(0)
 	if flag.NArg() != 1 || input == "" {
-		fatal(nil, CodeInvalidArgs, "parse arguments")
+		sys.Exit(sys.CodeInvalidArgs, "invalid arguments")
 	}
 
 	ref, err := name.ParseReference(input, name.WeakValidation)
 	if err != nil {
-		fatal(err, CodeFailedParse, "parse reference")
+		sys.Fatal(err, sys.CodeInvalidArgs, "parse reference")
 	}
 	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
 	if err != nil {
-		fatal(err, CodeFailedInspect, "authenticate registry")
+		sys.Fatal(err, sys.CodeFailedInspect, "authenticate registry")
 	}
 	img, err := remote.Image(ref, auth, http.DefaultTransport)
 	if err != nil {
-		fatal(err, CodeFailedInspect, "locate image")
+		sys.Fatal(err, sys.CodeFailedInspect, "locate image")
 	}
 	digest, err := img.Digest()
 	if err != nil {
@@ -54,38 +47,28 @@ func main() {
 			switch rErr.Errors[0].Code {
 			case remote.UnauthorizedErrorCode, remote.ManifestUnknownErrorCode:
 				fmt.Fprintf(os.Stderr, "Not found.")
-				os.Exit(CodeNotFound)
+				sys.Exit(sys.CodeNotFound)
 			}
 		}
-		fatal(err, CodeFailedInspect, "determine digest")
+		sys.Fatal(err, sys.CodeFailedInspect, "determine digest")
 	}
-	manifest, err := img.Manifest()
+	config, err := img.ConfigFile()
 	if err != nil {
-		fatal(err, CodeFailedInspect, "retrieve manifest")
+		sys.Fatal(err, sys.CodeFailedInspect, "retrieve manifest")
 	}
 	metadata := Metadata{
 		Ref: ref.Context().Name() + "@" + digest.String(),
-		Rev: manifest.Annotations,
+		Rev: config.Config.Labels,
 	}
 	metadataFile, err := os.Create(metadataPath)
 	if err != nil {
-		fatal(err, CodeFailedInspect, "create file", metadataPath)
+		sys.Fatal(err, sys.CodeFailed, "create metadata file", metadataPath)
 	}
 	defer metadataFile.Close()
 
 	if err := json.NewEncoder(metadataFile).Encode(metadata); err != nil {
 		defer os.RemoveAll(metadataPath)
-		fatal(err, CodeFailedInspect, "write metadata to", metadataPath)
+		sys.Fatal(err, sys.CodeFailed, "write metadata to", metadataPath)
 	}
 	fmt.Println(metadata.Ref)
-}
-
-func fatal(err error, code int, action ...string) {
-	message := "failed to " + strings.Join(action, " ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s: %s\n", message, err)
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", message)
-	}
-	os.Exit(code)
 }

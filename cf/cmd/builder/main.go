@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -15,90 +17,103 @@ import (
 	bal "code.cloudfoundry.org/buildpackapplifecycle"
 	"code.cloudfoundry.org/cli/cf/appfiles"
 
-	"bytes"
-
 	cfapp "github.com/sclevine/packs/cf/app"
+	"github.com/sclevine/packs/cf/sys"
 )
 
-const (
-	CodeFailedEnv = iota + 1
-	CodeFailedSetup
-	CodeFailedBuild
-	CodeInvalidArgs
-)
+type Metadata struct {
+	App struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	} `json:"app"`
+}
 
 func main() {
 	config := bal.NewLifecycleBuilderConfig(nil, false, false)
 	if err := config.Parse(os.Args[1:]); err != nil {
-		fatal(err, CodeInvalidArgs, "parse arguments")
+		sys.Fatal(err, sys.CodeInvalidArgs, "parse arguments")
 	}
 
 	var (
-		extraArgs      []string
-		appZip         = os.Getenv("PACK_APP_ZIP")
-		appDir         = os.Getenv("PACK_APP_DIR")
-		buildDir       = config.BuildDir()
-		cacheDir       = config.BuildArtifactsCacheDir()
-		cacheTar       = config.OutputBuildArtifactsCache()
-		cacheTarDir    = filepath.Dir(cacheTar)
-		dropletDir     = filepath.Dir(config.OutputDroplet())
-		metadataDir    = filepath.Dir(config.OutputMetadata())
+		extraArgs []string
+		metadata  Metadata
+
+		appZip = os.Getenv("PACK_APP_ZIP")
+		appDir = os.Getenv("PACK_APP_DIR")
+
+		buildDir     = config.BuildDir()
+		cacheDir     = config.BuildArtifactsCacheDir()
+		cacheTar     = config.OutputBuildArtifactsCache()
+		metadataJSON = config.OutputMetadata()
+
+		cacheTarDir = filepath.Dir(cacheTar)
+		metadataDir = filepath.Dir(metadataJSON)
+		dropletDir  = filepath.Dir(config.OutputDroplet())
+
 		buildpacksDir  = config.BuildpacksDir()
 		buildpackConf  = filepath.Join(buildpacksDir, "config.json")
 		buildpackOrder = config.BuildpackOrder()
 		skipDetect     = config.SkipDetect()
 	)
 
+	metadata.App.Name = os.Getenv("PACK_APP_NAME")
+
 	if appDir == "" {
 		var err error
 		if appDir, err = os.Getwd(); err != nil {
-			fatal(err, CodeFailedSetup, "get working directory")
+			sys.Fatal(err, sys.CodeFailed, "get working directory")
 		}
 	}
 
 	if appZip != "" {
+		metadata.App.Version = fileSHA(appZip)
 		if err := copyAppZip(appZip, buildDir); err != nil {
-			fatal(err, CodeFailedSetup, "extract app zip")
+			sys.Fatal(err, sys.CodeFailed, "extract app zip")
 		}
-	} else if appDir != buildDir {
-		if err := copyAppDir(appDir, buildDir); err != nil {
-			fatal(err, CodeFailedSetup, "copy app directory")
+	} else if appDir != "" {
+		metadata.App.Version = commitSHA(appDir)
+		if !cmpDir(appDir, buildDir) {
+			if err := copyAppDir(appDir, buildDir); err != nil {
+				sys.Fatal(err, sys.CodeFailed, "copy app directory")
+			}
 		}
+	} else {
+		sys.Fatal(nil, sys.CodeInvalidArgs, "parse app directory")
 	}
 
 	if _, err := os.Stat(cacheTar); err == nil {
 		if err := untar(cacheTar, cacheDir); err != nil {
-			fatal(err, CodeFailedSetup, "extract cache")
+			sys.Fatal(err, sys.CodeFailed, "extract cache")
 		}
 	}
 
-	if err := ensure(dropletDir, metadataDir, cacheTarDir); err != nil {
-		fatal(err, CodeFailedSetup, "prepare destination directories")
+	if err := mkdir(dropletDir, metadataDir, cacheTarDir); err != nil {
+		sys.Fatal(err, sys.CodeFailed, "prepare destination directories")
 	}
-	if err := ensureAll(buildDir, cacheDir, "/home/vcap/tmp"); err != nil {
-		fatal(err, CodeFailedSetup, "prepare source directories")
+	if err := mkdirAll(buildDir, cacheDir, "/home/vcap/tmp"); err != nil {
+		sys.Fatal(err, sys.CodeFailed, "prepare source directories")
 	}
 	if err := addBuildpacks("/buildpacks", buildpacksDir); err != nil {
-		fatal(err, CodeFailedSetup, "add buildpacks")
+		sys.Fatal(err, sys.CodeFailed, "add buildpacks")
 	}
 
 	if strings.Join(buildpackOrder, "") == "" && !skipDetect {
 		names, err := reduceJSONFile("name", buildpackConf)
 		if err != nil {
-			fatal(err, CodeFailedSetup, "determine buildpack names")
+			sys.Fatal(err, sys.CodeFailed, "determine buildpack names")
 		}
 		extraArgs = append(extraArgs, "-buildpackOrder", names)
 	}
 
 	uid, gid, err := userLookup("vcap")
 	if err != nil {
-		fatal(err, CodeFailedSetup, "determine vcap UID/GID")
+		sys.Fatal(err, sys.CodeFailed, "determine vcap UID/GID")
 	}
 	if err := setupStdFds(); err != nil {
-		fatal(err, CodeFailedSetup, "setup fds")
+		sys.Fatal(err, sys.CodeFailed, "setup fds")
 	}
 	if err := setupEnv(); err != nil {
-		fatal(err, CodeFailedEnv, "setup env")
+		sys.Fatal(err, sys.CodeInvalidEnv, "setup env")
 	}
 
 	cmd := exec.Command("/lifecycle/builder", append(os.Args[1:], extraArgs...)...)
@@ -110,7 +125,10 @@ func main() {
 		Credential: &syscall.Credential{Uid: uid, Gid: gid},
 	}
 	if err := cmd.Run(); err != nil {
-		fatal(err, CodeFailedBuild, "build")
+		sys.Fatal(err, sys.CodeFailedBuild, "build")
+	}
+	if err := setKeyJSON(metadataJSON, "pack_metadata", &metadata); err != nil {
+		sys.Fatal(err, sys.CodeFailed, "write metadata")
 	}
 }
 
@@ -118,11 +136,10 @@ func copyAppDir(src, dst string) error {
 	copier := appfiles.ApplicationFiles{}
 	files, err := copier.AppFilesInDir(src)
 	if err != nil {
-		return fail(err, "analyze app in", src)
+		return sys.Fail(err, "analyze app in", src)
 	}
-	err = copier.CopyFiles(files, src, dst)
-	if err != nil {
-		return fail(err, "copy app from", src, "to", dst)
+	if err := copier.CopyFiles(files, src, dst); err != nil {
+		return sys.Fail(err, "copy app from", src, "to", dst)
 	}
 	return nil
 }
@@ -131,35 +148,99 @@ func copyAppZip(src, dst string) error {
 	zipper := appfiles.ApplicationZipper{}
 	tmpDir, err := ioutil.TempDir("", "pack")
 	if err != nil {
-		return fail(err, "create temp dir")
+		return sys.Fail(err, "create temp dir")
 	}
 	defer os.RemoveAll(tmpDir)
 	if err := zipper.Unzip(src, tmpDir); err != nil {
-		return fail(err, "unzip app from", src, "to", tmpDir)
+		return sys.Fail(err, "unzip app from", src, "to", tmpDir)
 	}
 	return copyAppDir(tmpDir, dst)
 }
 
-func ensure(dirs ...string) error {
+func cmpDir(dirs ...string) bool {
+	var last string
+	for _, dir := range dirs {
+		next, err := filepath.Abs(dir)
+		if err != nil {
+			return false
+		}
+		switch last {
+		case "", next:
+			last = next
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func mkdir(dirs ...string) error {
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0777); err != nil {
-			return fail(err, "make directory", dir)
+			return sys.Fail(err, "make directory", dir)
 		}
-		if err := runCmd("chown", "vcap:vcap", dir); err != nil {
-			return fail(err, "chown", dir, "to vcap:vcap")
+		if _, err := sys.Run("chown", "vcap:vcap", dir); err != nil {
+			return sys.Fail(err, "chown", dir, "to vcap:vcap")
 		}
 	}
 	return nil
 }
 
-func ensureAll(dirs ...string) error {
+func mkdirAll(dirs ...string) error {
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0777); err != nil {
-			return fail(err, "make directory", dir)
+			return sys.Fail(err, "make directory", dir)
 		}
-		if err := runCmd("chown", "-R", "vcap:vcap", dir); err != nil {
-			return fail(err, "recursively chown", dir, "to", "vcap:vcap")
+		if _, err := sys.Run("chown", "-R", "vcap:vcap", dir); err != nil {
+			return sys.Fail(err, "recursively chown", dir, "to", "vcap:vcap")
 		}
+	}
+	return nil
+}
+
+func commitSHA(dir string) string {
+	v, err := sys.Run("git", "-C", dir, "rev-parse", "HEAD")
+	if err != nil {
+		return ""
+	}
+	return v
+}
+
+func fileSHA(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	h := sha1.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// TODO: test with /dev/null
+func setKeyJSON(path, key string, value interface{}) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return sys.Fail(err, "open metadata")
+	}
+	defer f.Close()
+
+	var contents map[string]interface{}
+	if err := json.NewDecoder(f).Decode(&contents); err != nil {
+		return sys.Fail(err, "decode JSON at", path)
+	}
+	contents[key] = value
+	if _, err := f.Seek(0, 0); err != nil {
+		return sys.Fail(err, "seek file at", path)
+	}
+	if err := f.Truncate(0); err != nil {
+		return sys.Fail(err, "truncate file at", path)
+	}
+	if err := json.NewEncoder(f).Encode(contents); err != nil {
+		return sys.Fail(err, "encode JSON to", path)
 	}
 	return nil
 }
@@ -170,7 +251,7 @@ func addBuildpacks(src, dst string) error {
 		return nil
 	}
 	if err != nil {
-		return fail(err, "setup buildpacks", src)
+		return sys.Fail(err, "setup buildpacks", src)
 	}
 
 	for _, f := range files {
@@ -188,11 +269,11 @@ func addBuildpacks(src, dst string) error {
 func reduceJSONFile(key string, path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", fail(err, "open", path)
+		return "", sys.Fail(err, "open", path)
 	}
 	var list []map[string]string
 	if err := json.NewDecoder(f).Decode(&list); err != nil {
-		return "", fail(err, "decode", path)
+		return "", sys.Fail(err, "decode", path)
 	}
 
 	var out []string
@@ -205,12 +286,12 @@ func reduceJSONFile(key string, path string) (string, error) {
 func setupEnv() error {
 	app, err := cfapp.New()
 	if err != nil {
-		return fail(err, "build app env")
+		return sys.Fail(err, "build app env")
 	}
 	for k, v := range app.Stage() {
 		err := os.Setenv(k, v)
 		if err != nil {
-			return fail(err, "set app env")
+			return sys.Fail(err, "set app env")
 		}
 	}
 	return nil
@@ -221,27 +302,27 @@ func setupStdFds() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fail(err, "fix permissions of stdout and stderr")
+		return sys.Fail(err, "fix permissions of stdout and stderr")
 	}
 	return nil
 }
 
 func unzip(zip, dst string) error {
 	if err := os.MkdirAll(dst, 0777); err != nil {
-		return fail(err, "ensure directory", dst)
+		return sys.Fail(err, "ensure directory", dst)
 	}
-	if err := runCmd("unzip", "-qq", zip, "-d", dst); err != nil {
-		return fail(err, "unzip", zip, "to", dst)
+	if _, err := sys.Run("unzip", "-qq", zip, "-d", dst); err != nil {
+		return sys.Fail(err, "unzip", zip, "to", dst)
 	}
 	return nil
 }
 
 func untar(tar, dst string) error {
 	if err := os.MkdirAll(dst, 0777); err != nil {
-		return fail(err, "ensure directory", dst)
+		return sys.Fail(err, "ensure directory", dst)
 	}
-	if err := runCmd("tar", "-C", dst, "-xzf", tar); err != nil {
-		return fail(err, "untar", tar, "to", dst)
+	if _, err := sys.Run("tar", "-C", dst, "-xzf", tar); err != nil {
+		return sys.Fail(err, "untar", tar, "to", dst)
 	}
 	return nil
 }
@@ -249,40 +330,15 @@ func untar(tar, dst string) error {
 func userLookup(u string) (uid, gid uint32, err error) {
 	usr, err := user.Lookup(u)
 	if err != nil {
-		return 0, 0, fail(err, "find user", u)
+		return 0, 0, sys.Fail(err, "find user", u)
 	}
 	uid64, err := strconv.ParseUint(usr.Uid, 10, 32)
 	if err != nil {
-		return 0, 0, fail(err, "parse uid", usr.Uid)
+		return 0, 0, sys.Fail(err, "parse uid", usr.Uid)
 	}
 	gid64, err := strconv.ParseUint(usr.Gid, 10, 32)
 	if err != nil {
-		return 0, 0, fail(err, "parse gid", usr.Gid)
+		return 0, 0, sys.Fail(err, "parse gid", usr.Gid)
 	}
 	return uint32(uid64), uint32(gid64), nil
 }
-
-func runCmd(name string, arg ...string) error {
-	buf := &bytes.Buffer{}
-	cmd := exec.Command(name, arg...)
-	cmd.Stderr = buf
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%s failed: %s\n%s", name, err, buf.String())
-	}
-}
-
-func fail(err error, action ...string) error {
-	message := "failed to " + strings.Join(action, " ")
-	return fmt.Errorf("%s: %s", message, err)
-}
-
-func fatal(err error, code int, action ...string) {
-	message := "failed to " + strings.Join(action, " ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s: %s\n", message, err)
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", message)
-	}
-	os.Exit(code)
-}
-
