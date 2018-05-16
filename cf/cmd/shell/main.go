@@ -11,6 +11,8 @@ import (
 const appDir = "/home/vcap/app"
 
 func main() {
+	defer sys.Cleanup()
+
 	if err := os.Chdir(appDir); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "change directory")
 	}

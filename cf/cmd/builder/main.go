@@ -29,6 +29,8 @@ type Metadata struct {
 }
 
 func main() {
+	defer sys.Cleanup()
+
 	config := bal.NewLifecycleBuilderConfig(nil, false, false)
 	if err := config.Parse(os.Args[1:]); err != nil {
 		sys.Fatal(err, sys.CodeInvalidArgs, "parse arguments")

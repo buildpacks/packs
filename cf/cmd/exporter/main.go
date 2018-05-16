@@ -19,6 +19,8 @@ import (
 )
 
 func main() {
+	defer sys.Cleanup()
+
 	var (
 		dropletTgz string
 		stackRef   string

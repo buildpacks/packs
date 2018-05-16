@@ -18,6 +18,8 @@ const (
 )
 
 func main() {
+	defer sys.Cleanup()
+
 	var droplet string
 	flag.StringVar(&droplet, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
 	flag.Parse()
