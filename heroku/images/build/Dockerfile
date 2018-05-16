@@ -5,29 +5,29 @@ ARG buildpacks
 
 WORKDIR /workspace
 
-RUN \
-  mkdir /var/lib/buildpacks && \
-  echo "${buildpacks}" > /var/lib/buildpacks/config.json && \
-  echo "${buildpacks}" | jq -c '.[]' | while read row; do \
-    name=$(echo "${row}" | jq -r '.name') && \
-    uri=$(echo "${row}" | jq -r '.uri') && \
-    key=$(echo -n "$name" | md5sum | awk '{ print $1 }') && \
-    echo "Fetching: $name" && \
-    curl -fsSLo /tmp/buildpack.tgz "$uri" && \
-    mkdir -p /var/lib/buildpacks/$key && \
-    echo "Unpacking: $name" && \
-    tar xvf /tmp/buildpack.tgz -C /var/lib/buildpacks/$key > /dev/null 2>&1 && \
-    chown -R heroku /var/lib/buildpacks/$key && \
-    rm /tmp/buildpack.tgz; \
-  done
+RUN mkdir -p /packs
+RUN curl -o /packs/cytokine -L https://heroku-packs.s3.amazonaws.com/cytokine-afac8e5d6c604ed7c8156a3b92ceb79d337e1346
+RUN chmod +x /packs/cytokine
 
-RUN mkdir /packs
-COPY builder /packs/
+RUN /packs/cytokine get-default-buildpacks \
+  --language=ruby \
+  --language=python \
+  --language=java \
+  --language=scala \
+  --language=gradle \
+  --language=clojure \
+  --language=python \
+  --language=go \
+  --language=nodejs \
+  /var/lib/buildpacks
+
+COPY builder.sh /packs/
 
 ENTRYPOINT [ \
-  "/packs/builder", \
-  "-buildpacksDir", "/var/lib/buildpacks", \
-  "-outputDroplet", "/out/droplet.tgz", \
-  "-outputBuildArtifactsCache", "/cache/cache.tgz", \
-  "-outputMetadata", "/out/result.json" \
+  "/bin/bash", \
+  "/packs/builder.sh", \
+  "/var/lib/buildpacks", \
+  "/workspace", \
+  "/out/droplet.tgz", \
+  "/cache/cache.tgz" \
 ]
