@@ -29,19 +29,11 @@ mkdir -p /tmp/env
   /tmp/env \
   ${BUILDPACKS_DIR}
 
-# TODO run bin/release
 /packs/cytokine release-buildpacks \
   --buildpack=${buildpack} \
   ${APP_DIR} \
   ${BUILDPACKS_DIR} \
-  /tmp/release.yml
-
-cat << EOF > ${APP_DIR}/staging_info.yml
-{
-  "detected_buildpack":"${buildpack}",
-  "start_command":"${web_process}"
- }
-EOF
+  $(dirname ${SLUG_FILE})/release.yml
 
 /packs/cytokine make-slug /tmp/slug.tgz ${APP_DIR}
 
@@ -50,6 +42,3 @@ mv /tmp/slug.tgz ${SLUG_FILE}
 
 mkdir -p $(dirname ${CACHE_FILE})
 tar czf ${CACHE_FILE} -C /tmp/cache/ .
-
-# TODO create staging_info.yml
-
