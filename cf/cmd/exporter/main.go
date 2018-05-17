@@ -11,10 +11,10 @@ import (
 
 	"github.com/google/go-containerregistry/authn"
 	"github.com/google/go-containerregistry/name"
+	"github.com/google/go-containerregistry/v1"
 	"github.com/google/go-containerregistry/v1/mutate"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/google/go-containerregistry/v1/tarball"
-	"github.com/google/image-rebase/pkg/rebase"
 	"github.com/sclevine/packs/cf/sys"
 )
 
@@ -22,120 +22,148 @@ func main() {
 	defer sys.Cleanup()
 
 	var (
-		dropletTgz string
-		stackRef   string
+		dropletPath string
+		stackName   string
 	)
-	flag.StringVar(&dropletTgz, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
-	flag.StringVar(&stackRef, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
+	flag.StringVar(&dropletPath, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
+	flag.StringVar(&stackName, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
 	flag.Parse()
 
-	repo := flag.Arg(0)
-	if flag.NArg() != 1 || repo == "" {
+	repoName := flag.Arg(0)
+	if flag.NArg() != 1 || repoName == "" {
 		sys.Exit(sys.CodeInvalidArgs, "invalid arguments")
 	}
-	registry := strings.ToLower(strings.SplitN(repo, "/", 2)[0])
+	registry := strings.ToLower(strings.SplitN(repoName, "/", 2)[0])
 	if err := configureCreds(registry, "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
-		sys.Fatal(err, sys.CodeFailed, "setup credentials")
+		sys.Fatal(err, sys.CodeFailed, "setup GCR credentials")
+	}
+
+	repoTag, err := name.NewTag(repoName, name.WeakValidation)
+	if err != nil {
+		sys.Fatal(err, sys.CodeInvalidArgs, "parse repository reference:", repoName)
+	}
+	repoAuth, err := authn.DefaultKeychain.Resolve(repoTag.Context().Registry)
+	if err != nil {
+		sys.Fatal(err, sys.CodeFailed, "authenticate with repository registry")
+	}
+
+	stackRef, err := name.ParseReference(stackName, name.WeakValidation)
+	if err != nil {
+		sys.Fatal(err, sys.CodeInvalidArgs, "parse stack reference:", stackName)
+	}
+	stackAuth, err := authn.DefaultKeychain.Resolve(stackRef.Context().Registry)
+	if err != nil {
+		sys.Fatal(err, sys.CodeFailed, "authenticate with stack registry")
+	}
+	stackImage, err := remote.Image(stackRef, stackAuth, http.DefaultTransport)
+	if err != nil {
+		sys.Fatal(err, sys.CodeNotFound, "locate stack image:", stackName)
 	}
 
 	var (
-		oldStackDigest string
-		newStackRef    string
-		err            error
+		repoImage  v1.Image
+		repoMounts []name.Repository
 	)
-	if dropletTgz != "" {
-		newStackRef = stackRef
-		oldStackDigest, err = appendDroplet(stackRef, repo, dropletTgz)
+	if dropletPath != "" {
+		layer, err := dropletToLayer(dropletPath)
 		if err != nil {
-			sys.Fatal(err, sys.CodeFailedAppend, "append droplet")
+			sys.Fatal(err, sys.CodeFailed, "transform", dropletPath, "into layer")
 		}
+		defer os.Remove(layer)
+		repoImage, err = appendLayer(stackImage, layer)
+		if err != nil {
+			sys.Fatal(err, sys.CodeFailed, "append droplet to", stackName, "for", repoName)
+		}
+		if stackRef.Context().RegistryStr() == repoTag.Context().RegistryStr() {
+			repoMounts = []name.Repository{stackRef.Context()}
+		}
+	} else {
+		origImage, err := remote.Image(repoTag, repoAuth, http.DefaultTransport)
+		if err != nil {
+			sys.Fatal(err, sys.CodeNotFound, "locate repository image:", repoName)
+		}
+		var oldBaseRef name.Reference
+		repoImage, oldBaseRef, err = rebaseLayer(origImage, stackImage)
+		if err != nil {
+			sys.Fatal(err, sys.CodeFailed, "rebase", repoName, "on", stackName)
+		}
+		// TODO: consider filtering on repoTag.Context().RegistryStr() and excluding repoTag.Context()
+		repoMounts = []name.Repository{repoTag.Context(), oldBaseRef.Context(), stackRef.Context()}
 	}
-	if err := rebaseDroplet(repo, oldStackDigest, newStackRef); err != nil {
-		sys.Fatal(err, sys.CodeFailedRebase, "rebase droplet")
+	repoConfig, err := repoImage.ConfigFile()
+	if err != nil {
+		sys.Fatal(err, sys.CodeFailed, "get config for", repoName)
+	}
+	stackDigest, err := stackImage.Digest()
+	if err != nil {
+		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
+	}
+	repoConfig.Config.Labels["pack.stack.name"] = stackRef.Context().String()
+	repoConfig.Config.Labels["pack.stack.version"] = stackDigest.String()
+	if err := remote.Write(repoTag, repoImage, repoAuth, http.DefaultTransport, remote.WriteOptions{
+		MountPaths: repoMounts,
+	}); err != nil {
+		sys.Fatal(err, sys.CodeFailedUpdate, "write", repoName)
 	}
 }
 
-func appendDroplet(stackImg, dstImg, dropletTgz string) (stackDigest string, err error) {
-	tmpDir, err := ioutil.TempDir("", "packs.export")
+func dropletToLayer(dropletPath string) (layer string, err error) {
+	tmpDir, err := ioutil.TempDir("", "pack.export.layer")
 	if err != nil {
 		return "", sys.Fail(err, "create temp directory")
 	}
 	defer os.RemoveAll(tmpDir)
 
-	dropletDir := filepath.Join(tmpDir, "home", "vcap")
-	layerTGZ := filepath.Join(tmpDir, "layer.tgz")
+	layer = tmpDir + ".tgz"
+	dropletRoot := filepath.Join(tmpDir, "home", "vcap")
 
-	if err := os.MkdirAll(dropletDir, 0777); err != nil {
+	if err := os.MkdirAll(dropletRoot, 0777); err != nil {
 		return "", sys.Fail(err, "setup droplet directory")
 	}
-	if _, err := sys.Run("tar", "-C", dropletDir, "-xzf", dropletTgz); err != nil {
-		return "", sys.Fail(err, "untar", dropletTgz, "to", dropletDir)
+	if _, err := sys.Run("tar", "-C", dropletRoot, "-xzf", dropletPath); err != nil {
+		return "", sys.Fail(err, "untar", dropletPath, "to", dropletRoot)
 	}
-	if _, err := sys.Run("chown", "-R", "vcap:vcap", dropletDir); err != nil {
-		return "", sys.Fail(err, "recursively chown", dropletDir, "to", "vcap:vcap")
+	if _, err := sys.Run("chown", "-R", "vcap:vcap", dropletRoot); err != nil {
+		return "", sys.Fail(err, "recursively chown", dropletRoot, "to", "vcap:vcap")
 	}
-	if _, err := sys.Run("tar", "-C", tmpDir, "-czf", layerTGZ, "home"); err != nil {
-		return "", sys.Fail(err, "tar", tmpDir, "to", layerTGZ)
+	if _, err := sys.Run("tar", "-C", tmpDir, "-czf", layer, "home"); err != nil {
+		defer os.Remove(layer)
+		return "", sys.Fail(err, "tar", tmpDir, "to", layer)
 	}
-	stackDigest, err = appendLayer(stackImg, dstImg, layerTGZ)
-	if err != nil {
-		return "", sys.Fail(err, "append", layerTGZ, "to", stackImg, "into", dstImg)
-	}
-	return stackDigest, nil
+	return layer, nil
 }
 
-func appendLayer(src, dst, tar string) (srcDigest string, err error) {
-	srcRef, err := name.ParseReference(src, name.WeakValidation)
-	if err != nil {
-		return "", err
-	}
-
-	srcAuth, err := authn.DefaultKeychain.Resolve(srcRef.Context().Registry)
-	if err != nil {
-		return "", err
-	}
-
-	srcImage, err := remote.Image(srcRef, srcAuth, http.DefaultTransport)
-	if err != nil {
-		return "", err
-	}
-
-	dstTag, err := name.NewTag(dst, name.WeakValidation)
-	if err != nil {
-		return "", err
-	}
-
+func appendLayer(origImage v1.Image, tar string) (image v1.Image, err error) {
 	layer, err := tarball.LayerFromFile(tar)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	dstImage, err := mutate.AppendLayers(srcImage, layer)
-	if err != nil {
-		return "", err
-	}
-
-	opts := remote.WriteOptions{}
-	if srcRef.Context().RegistryStr() == dstTag.Context().RegistryStr() {
-		opts.MountPaths = append(opts.MountPaths, srcRef.Context())
-	}
-
-	dstAuth, err := authn.DefaultKeychain.Resolve(dstTag.Context().Registry)
-	if err != nil {
-		return "", err
-	}
-
-	srcDigestHash, err := srcImage.Digest()
-	if err != nil {
-		return "", err
-	}
-	srcDigest = srcRef.Context().Name() + "@" + srcDigestHash.String()
-	return srcDigest, remote.Write(dstTag, dstImage, dstAuth, http.DefaultTransport, opts)
+	return mutate.AppendLayers(origImage, layer)
 }
 
-func rebaseDroplet(img, oldStackDigest, newStackRef string) error {
-	rebaser := rebase.New(authn.DefaultKeychain, http.DefaultTransport)
-	return rebaser.Rebase(img, oldStackDigest, newStackRef, img)
+func rebaseLayer(origImage, newBaseImage v1.Image) (image v1.Image, oldBaseRef name.Reference, err error) {
+	origConfig, err := origImage.ConfigFile()
+	if err != nil {
+		return nil, nil, err
+	}
+	oldBaseName := origConfig.Config.Labels["pack.stack.name"] + "@" + origConfig.Config.Labels["pack.stack.version"]
+	oldBaseDigest, err := name.NewDigest(oldBaseName, name.WeakValidation)
+	if err != nil {
+		return nil, nil, err
+	}
+	oldBaseAuth, err := authn.DefaultKeychain.Resolve(oldBaseDigest.Context().Registry)
+	if err != nil {
+		return nil, nil, err
+	}
+	oldBaseImage, err := remote.Image(oldBaseDigest, oldBaseAuth, http.DefaultTransport)
+	if err != nil {
+		return nil, nil, err
+	}
+	image, err = mutate.Rebase(origImage, oldBaseImage, newBaseImage, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return image, oldBaseDigest, nil
 }
 
 func configureCreds(registry, domain, command string, args ...string) error {

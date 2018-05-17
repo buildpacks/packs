@@ -18,8 +18,7 @@ const (
 	CodeFailedBuild
 	CodeFailedLaunch
 	CodeFailedInspect
-	CodeFailedAppend
-	CodeFailedRebase
+	CodeFailedUpdate
 )
 
 func Fail(err error, action ...string) error {
