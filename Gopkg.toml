@@ -12,8 +12,4 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/google/image-rebase"
-
-[[constraint]]
-  branch = "master"
   name = "github.com/google/go-containerregistry"

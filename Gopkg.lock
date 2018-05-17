@@ -5,7 +5,7 @@
   branch = "master"
   name = "code.cloudfoundry.org/buildpackapplifecycle"
   packages = ["."]
-  revision = "2e7286a8f8c9d1dafe3446b44d52a82995f90e3e"
+  revision = "1e1fa5ae3fdb39bf974fe111ce2e7373473550fc"
 
 [[projects]]
   branch = "master"
@@ -66,10 +66,10 @@
   version = "v3.5.1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/fatih/color"
   packages = ["."]
-  revision = "507f6050b8568533fb3f5504de8e5205fa62a114"
-  version = "v1.6.0"
+  revision = "2d684516a8861da43017284349b7e303e809ac21"
 
 [[projects]]
   branch = "master"
@@ -88,13 +88,7 @@
     "v1/types",
     "v1/v1util"
   ]
-  revision = "0ff1db03aaaabc9820e8a13353f61d8474814abd"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/google/image-rebase"
-  packages = ["pkg/rebase"]
-  revision = "5bf869a79af99938daff930d0d78d489ffd417e4"
+  revision = "444ab79261d69459bce69344ca13fed5d28bfd82"
 
 [[projects]]
   branch = "master"
@@ -118,13 +112,13 @@
   branch = "master"
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
-  revision = "a9d6d1e4dc51df2130326793d49971f238839169"
+  revision = "ce7b0b5c7b45a81508558cd1dba6bb1e4ddb51bb"
 
 [[projects]]
   branch = "master"
   name = "github.com/sclevine/spec"
   packages = ["."]
-  revision = "b2a18c83f7093235f63f9f6862449a8b68ff84a5"
+  revision = "a925ac4bfbc9e5770f1239042559a18443f4d84b"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -145,7 +139,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "c3a3ad6d03f7a915c0f7e194b7152974bb73d287"
+  revision = "1a580b3eff7814fc9b40602fd35256c63b50f491"
 
 [[projects]]
   branch = "master"
@@ -154,7 +148,7 @@
     "unix",
     "windows"
   ]
-  revision = "d8e400bc7db4870d786864138af681469693d18c"
+  revision = "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b"
 
 [[projects]]
   branch = "master"
@@ -167,7 +161,7 @@
     "language",
     "unicode/cldr"
   ]
-  revision = "8c34f848e18c4bd34d02db7f19a0ed1a0a8f5852"
+  revision = "5c1cf69b5978e5a34c5f9ba09a83e56acc4b7877"
 
 [[projects]]
   branch = "off_by_one_scanner_error_line"
@@ -179,6 +173,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6778db25f3a7478a99c843eaa609c23b2769b767569512afb85abe12ead99f0f"
+  inputs-digest = "9eae9fb8cd092e163aabe3e83efde31e22dbf868a710629e4d2112f68a00565e"
   solver-name = "gps-cdcl"
   solver-version = 1
