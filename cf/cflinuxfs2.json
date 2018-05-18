@@ -5,27 +5,27 @@
   },
   {
     "name": "java_buildpack",
-    "uri": "https://github.com/cloudfoundry/java-buildpack/releases/download/v4.11/java-buildpack-v4.11.zip"
+    "uri": "https://github.com/cloudfoundry/java-buildpack/releases/download/v4.12/java-buildpack-v4.12.zip"
   },
   {
     "name": "ruby_buildpack",
-    "uri": "https://github.com/cloudfoundry/ruby-buildpack/releases/download/v1.7.16/ruby-buildpack-v1.7.16.zip"
+    "uri": "https://github.com/cloudfoundry/ruby-buildpack/releases/download/v1.7.18/ruby-buildpack-v1.7.18.zip"
   },
   {
     "name": "nodejs_buildpack",
-    "uri": "https://github.com/cloudfoundry/nodejs-buildpack/releases/download/v1.6.22/nodejs-buildpack-v1.6.22.zip"
+    "uri": "https://github.com/cloudfoundry/nodejs-buildpack/releases/download/v1.6.23/nodejs-buildpack-v1.6.23.zip"
   },
   {
     "name": "go_buildpack",
-    "uri": "https://github.com/cloudfoundry/go-buildpack/releases/download/v1.8.21/go-buildpack-v1.8.21.zip"
+    "uri": "https://github.com/cloudfoundry/go-buildpack/releases/download/v1.8.22/go-buildpack-v1.8.22.zip"
   },
   {
     "name": "python_buildpack",
-    "uri": "https://github.com/cloudfoundry/python-buildpack/releases/download/v1.6.14/python-buildpack-v1.6.14.zip"
+    "uri": "https://github.com/cloudfoundry/python-buildpack/releases/download/v1.6.15/python-buildpack-v1.6.15.zip"
   },
   {
     "name": "php_buildpack",
-    "uri": "https://github.com/cloudfoundry/php-buildpack/releases/download/v4.3.52/php-buildpack-v4.3.52.zip"
+    "uri": "https://github.com/cloudfoundry/php-buildpack/releases/download/v4.3.54/php-buildpack-v4.3.54.zip"
   },
   {
     "name": "dotnet_core_buildpack",
