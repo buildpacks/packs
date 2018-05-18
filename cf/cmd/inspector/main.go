@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -12,7 +13,6 @@ import (
 
 	"github.com/sclevine/packs/cf/build"
 	"github.com/sclevine/packs/cf/sys"
-	"io/ioutil"
 )
 
 func main() {

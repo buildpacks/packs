@@ -3,6 +3,8 @@ FROM packs/${stack}
 
 ARG buildpacks
 
+LABEL sh.packs.buildpacks $buildpacks
+
 RUN \
   mkdir /var/lib/buildpacks && \
   echo "${buildpacks}" > /var/lib/buildpacks/config.json && \
