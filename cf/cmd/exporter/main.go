@@ -116,7 +116,7 @@ func main() {
 		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
 	}
 	var buildMetadata build.Metadata
-	if err := json.Unmarshal([]byte(repoConfig.Config.Labels[buildLabel]), &buildMetadata); err != nil {
+	if err := json.Unmarshal([]byte(repoConfig.Config.Labels[build.Label]), &buildMetadata); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
 	}
 	buildMetadata.Stack.Name = stackRef.Context().String()
