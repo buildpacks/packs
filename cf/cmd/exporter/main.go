@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -15,18 +16,18 @@ import (
 	"github.com/google/go-containerregistry/v1/mutate"
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/google/go-containerregistry/v1/tarball"
-	"github.com/sclevine/packs/cf/sys"
+
 	"github.com/sclevine/packs/cf/build"
-	"encoding/json"
+	"github.com/sclevine/packs/cf/sys"
 )
 
 func main() {
 	defer sys.Cleanup()
 
 	var (
-		dropletPath string
+		dropletPath  string
 		metadataPath string
-		stackName   string
+		stackName    string
 	)
 	flag.StringVar(&dropletPath, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
 	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_DROPLET_METADATA_PATH"), "file containing droplet metadata")
@@ -69,6 +70,7 @@ func main() {
 		repoImage       v1.Image
 		repoMounts      []name.Repository
 		dropletMetadata *build.DropletMetadata
+		buildMetadata   build.Metadata
 	)
 	if dropletPath != "" {
 		if metadataPath != "" {
@@ -99,30 +101,32 @@ func main() {
 		if err != nil {
 			sys.Fatal(err, sys.CodeNotFound, "locate repository image:", repoName)
 		}
+		origConfig, err := origImage.ConfigFile()
+		if err != nil {
+			sys.Fatal(err, sys.CodeFailed, "get config file for", repoName)
+		}
+		if err := json.Unmarshal([]byte(origConfig.Config.Labels[build.Label]), &buildMetadata); err != nil {
+			sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
+		}
 		var oldBaseRef name.Reference
-		repoImage, oldBaseRef, err = rebaseLayer(origImage, stackImage)
+		repoImage, oldBaseRef, err = rebaseLayer(origImage, stackImage, buildMetadata.Stack)
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "rebase", repoName, "on", stackName)
 		}
 		// TODO: consider filtering on repoTag.Context().RegistryStr() and excluding repoTag.Context()
 		repoMounts = []name.Repository{repoTag.Context(), oldBaseRef.Context(), stackRef.Context()}
 	}
-	repoConfig, err := repoImage.ConfigFile()
+	repoConfigFile, err := repoImage.ConfigFile()
 	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "get config for", repoName)
+		sys.Fatal(err, sys.CodeFailed, "get config file for", repoName)
 	}
-	if repoConfig.Config.Labels == nil {
-		repoConfig.Config.Labels = make(map[string]string)
+	repoConfig := *repoConfigFile.Config.DeepCopy()
+	if repoConfig.Labels == nil {
+		repoConfig.Labels = map[string]string{}
 	}
 	stackDigest, err := stackImage.Digest()
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
-	}
-	var buildMetadata build.Metadata
-	if orig := repoConfig.Config.Labels[build.Label]; orig != "" {
-		if err := json.Unmarshal([]byte(orig), &buildMetadata); err != nil {
-			sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
-		}
 	}
 	buildMetadata.Stack.Name = stackRef.Context().String()
 	buildMetadata.Stack.Version = stackDigest.String()
@@ -134,7 +138,12 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get encode metadata for", repoName)
 	}
-	repoConfig.Config.Labels[build.Label] = string(buildJSON)
+	repoConfig.Labels[build.Label] = string(buildJSON)
+
+	repoImage, err = mutate.Config(repoImage, repoConfig)
+	if err != nil {
+		sys.Fatal(err, sys.CodeFailed, "set config file for", repoName)
+	}
 	if err := remote.Write(repoTag, repoImage, repoAuth, http.DefaultTransport, remote.WriteOptions{
 		MountPaths: repoMounts,
 	}); err != nil {
@@ -176,29 +185,24 @@ func appendLayer(origImage v1.Image, tar string) (image v1.Image, err error) {
 	return mutate.AppendLayers(origImage, layer)
 }
 
-func rebaseLayer(origImage, newBaseImage v1.Image) (image v1.Image, oldBaseRef name.Reference, err error) {
-	origConfig, err := origImage.ConfigFile()
+func rebaseLayer(origImage, newStackImage v1.Image, oldStack build.StackMetadata) (image v1.Image, oldStackRef name.Reference, err error) {
+	oldStackDigest, err := name.NewDigest(oldStack.Name+"@"+oldStack.Version, name.WeakValidation)
 	if err != nil {
 		return nil, nil, err
 	}
-	oldBaseName := origConfig.Config.Labels["pack.stack.name"] + "@" + origConfig.Config.Labels["pack.stack.version"]
-	oldBaseDigest, err := name.NewDigest(oldBaseName, name.WeakValidation)
+	oldStackAuth, err := authn.DefaultKeychain.Resolve(oldStackDigest.Context().Registry)
 	if err != nil {
 		return nil, nil, err
 	}
-	oldBaseAuth, err := authn.DefaultKeychain.Resolve(oldBaseDigest.Context().Registry)
+	oldStackImage, err := remote.Image(oldStackDigest, oldStackAuth, http.DefaultTransport)
 	if err != nil {
 		return nil, nil, err
 	}
-	oldBaseImage, err := remote.Image(oldBaseDigest, oldBaseAuth, http.DefaultTransport)
+	image, err = mutate.Rebase(origImage, oldStackImage, newStackImage, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	image, err = mutate.Rebase(origImage, oldBaseImage, newBaseImage, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	return image, oldBaseDigest, nil
+	return image, oldStackDigest, nil
 }
 
 func configureCreds(registry, domain, command string, args ...string) error {
