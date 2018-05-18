@@ -13,7 +13,6 @@ fi
 GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/build/builder github.com/sclevine/packs/cf/cmd/builder
 GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/launcher github.com/sclevine/packs/cf/cmd/launcher
 GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/export/exporter github.com/sclevine/packs/cf/cmd/exporter
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/export/inspector github.com/sclevine/packs/cf/cmd/inspector
 GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/shell github.com/sclevine/packs/cf/cmd/shell
 
 docker pull "cloudfoundry/${stack}"

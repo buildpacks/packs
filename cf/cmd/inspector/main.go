@@ -14,11 +14,6 @@ import (
 	"github.com/sclevine/packs/cf/sys"
 )
 
-type Metadata struct {
-	Ref string            `json:"ref"`
-	Rev map[string]string `json:"rev"`
-}
-
 func main() {
 	defer sys.Cleanup()
 
@@ -58,19 +53,15 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailedInspect, "retrieve manifest")
 	}
-	metadata := Metadata{
-		Ref: ref.Context().Name() + "@" + digest.String(),
-		Rev: config.Config.Labels,
-	}
 	metadataFile, err := os.Create(metadataPath)
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "create metadata file", metadataPath)
 	}
 	defer metadataFile.Close()
 
-	if err := json.NewEncoder(metadataFile).Encode(metadata); err != nil {
+	if err := json.NewEncoder(metadataFile).Encode(config.Config.Labels["sh.packs.build"]); err != nil {
 		defer os.RemoveAll(metadataPath)
 		sys.Fatal(err, sys.CodeFailed, "write metadata to", metadataPath)
 	}
-	fmt.Println(metadata.Ref)
+	fmt.Println(ref.Context().Name() + "@" + digest.String())
 }

@@ -16,23 +16,30 @@ import (
 	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/google/go-containerregistry/v1/tarball"
 	"github.com/sclevine/packs/cf/sys"
+	"github.com/sclevine/packs/cf/build"
+	"encoding/json"
 )
+
+const buildLabel = "sh.packs.build"
 
 func main() {
 	defer sys.Cleanup()
 
 	var (
 		dropletPath string
+		metadataPath string
 		stackName   string
 	)
 	flag.StringVar(&dropletPath, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
+	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_DROPLET_METADATA_PATH"), "file containing droplet metadata")
 	flag.StringVar(&stackName, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
 	flag.Parse()
 
 	repoName := flag.Arg(0)
-	if flag.NArg() != 1 || repoName == "" {
+	if flag.NArg() != 1 || repoName == "" || stackName == "" {
 		sys.Exit(sys.CodeInvalidArgs, "invalid arguments")
 	}
+
 	registry := strings.ToLower(strings.SplitN(repoName, "/", 2)[0])
 	if err := configureCreds(registry, "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "setup GCR credentials")
@@ -61,10 +68,22 @@ func main() {
 	}
 
 	var (
-		repoImage  v1.Image
-		repoMounts []name.Repository
+		repoImage       v1.Image
+		repoMounts      []name.Repository
+		dropletMetadata *build.DropletMetadata
 	)
 	if dropletPath != "" {
+		if metadataPath != "" {
+			metadataFile, err := os.Open(metadataPath)
+			if err != nil {
+				sys.Fatal(err, sys.CodeFailed, "failed to open", metadataPath)
+			}
+			defer metadataFile.Close()
+			dropletMetadata = &build.DropletMetadata{}
+			if err := json.NewDecoder(metadataFile).Decode(&dropletMetadata); err != nil {
+				sys.Fatal(err, sys.CodeFailed, "failed to decode metadata")
+			}
+		}
 		layer, err := dropletToLayer(dropletPath)
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "transform", dropletPath, "into layer")
@@ -98,8 +117,21 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
 	}
-	repoConfig.Config.Labels["pack.stack.name"] = stackRef.Context().String()
-	repoConfig.Config.Labels["pack.stack.version"] = stackDigest.String()
+	var buildMetadata build.Metadata
+	if err := json.Unmarshal([]byte(repoConfig.Config.Labels[buildLabel]), &buildMetadata); err != nil {
+		sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
+	}
+	buildMetadata.Stack.Name = stackRef.Context().String()
+	buildMetadata.Stack.Version = stackDigest.String()
+	if dropletMetadata != nil {
+		buildMetadata.App = dropletMetadata.PackMetadata.App
+		buildMetadata.Buildpacks = dropletMetadata.Buildpacks
+	}
+	buildJSON, err := json.Marshal(buildMetadata)
+	if err != nil {
+		sys.Fatal(err, sys.CodeFailed, "get encode metadata for", repoName)
+	}
+	repoConfig.Config.Labels[buildLabel] = string(buildJSON)
 	if err := remote.Write(repoTag, repoImage, repoAuth, http.DefaultTransport, remote.WriteOptions{
 		MountPaths: repoMounts,
 	}); err != nil {

@@ -18,15 +18,9 @@ import (
 	"code.cloudfoundry.org/cli/cf/appfiles"
 
 	cfapp "github.com/sclevine/packs/cf/app"
+	"github.com/sclevine/packs/cf/build"
 	"github.com/sclevine/packs/cf/sys"
 )
-
-type Metadata struct {
-	App struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
-	} `json:"app"`
-}
 
 func main() {
 	defer sys.Cleanup()
@@ -37,11 +31,12 @@ func main() {
 	}
 
 	var (
-		extraArgs []string
-		metadata  Metadata
+		extraArgs  []string
+		appVersion string
 
-		appZip = os.Getenv("PACK_APP_ZIP")
-		appDir = os.Getenv("PACK_APP_DIR")
+		appName = os.Getenv("PACK_APP_NAME")
+		appZip  = os.Getenv("PACK_APP_ZIP")
+		appDir  = os.Getenv("PACK_APP_DIR")
 
 		buildDir     = config.BuildDir()
 		cacheDir     = config.BuildArtifactsCacheDir()
@@ -58,8 +53,6 @@ func main() {
 		skipDetect     = config.SkipDetect()
 	)
 
-	metadata.App.Name = os.Getenv("PACK_APP_NAME")
-
 	if appDir == "" {
 		var err error
 		if appDir, err = os.Getwd(); err != nil {
@@ -68,12 +61,12 @@ func main() {
 	}
 
 	if appZip != "" {
-		metadata.App.Version = fileSHA(appZip)
+		appVersion = fileSHA(appZip)
 		if err := copyAppZip(appZip, buildDir); err != nil {
 			sys.Fatal(err, sys.CodeFailed, "extract app zip")
 		}
 	} else if appDir != "" {
-		metadata.App.Version = commitSHA(appDir)
+		appVersion = commitSHA(appDir)
 		if !cmpDir(appDir, buildDir) {
 			if err := copyAppDir(appDir, buildDir); err != nil {
 				sys.Fatal(err, sys.CodeFailed, "copy app directory")
@@ -129,7 +122,12 @@ func main() {
 	if err := cmd.Run(); err != nil {
 		sys.Fatal(err, sys.CodeFailedBuild, "build")
 	}
-	if err := setKeyJSON(metadataJSON, "pack_metadata", &metadata); err != nil {
+	if err := setKeyJSON(metadataJSON, "pack_metadata", build.PackMetadata{
+		App: build.AppMetadata{
+			Name:    appName,
+			Version: appVersion,
+		},
+	}); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "write metadata")
 	}
 }
