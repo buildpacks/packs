@@ -27,7 +27,9 @@ ENTRYPOINT [ \
   "/bin/bash", \
   "/packs/builder.sh", \
   "/var/lib/buildpacks", \
-  "/workspace", \
-  "/out/droplet.tgz", \
+  "/tmp/app", \
+  "/tmp/cache", \
+  "/tmp/env", \
+  "/out/slug.tgz", \
   "/cache/cache.tgz" \
 ]
