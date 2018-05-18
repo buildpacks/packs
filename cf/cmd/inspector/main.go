@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/sclevine/packs/cf/build"
 	"github.com/sclevine/packs/cf/sys"
+	"io/ioutil"
 )
 
 func main() {
@@ -54,14 +54,7 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailedInspect, "retrieve manifest")
 	}
-	metadataFile, err := os.Create(metadataPath)
-	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "create metadata file", metadataPath)
-	}
-	defer metadataFile.Close()
-
-	if err := json.NewEncoder(metadataFile).Encode(config.Config.Labels[build.Label]); err != nil {
-		defer os.RemoveAll(metadataPath)
+	if err := ioutil.WriteFile(metadataPath, []byte(config.Config.Labels[build.Label]), 0666); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "write metadata to", metadataPath)
 	}
 	fmt.Println(ref.Context().Name() + "@" + digest.String())
