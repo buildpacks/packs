@@ -1,13 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+
+	"gopkg.in/yaml.v2"
 
 	herokuapp "github.com/sclevine/packs/heroku/app"
 )
@@ -17,6 +19,18 @@ const (
 	CodeFailedSetup
 	CodeFailedLaunch
 )
+
+type ErrProcfileNoProcess string
+
+func (e ErrProcfileNoProcess) Error() string {
+	return fmt.Sprintf("%s", e)
+}
+
+type ErrNoCommandFound string
+
+func (e ErrNoCommandFound) Error() string {
+	return fmt.Sprintf("%s", e)
+}
 
 func main() {
 	var inputDroplet string
@@ -32,7 +46,8 @@ func main() {
 	check(err, CodeFailedSetup, "change directory")
 
 	if command == "" {
-		command = readCommand("/staging_info.yml")
+		command, err = readCommand()
+		check(err, CodeFailedSetup, "please add a Procfile with a web process")
 	}
 
 	app, err := herokuapp.New()
@@ -57,15 +72,51 @@ func supplyApp(tgz, dst string) {
 	check(err, CodeFailedSetup, "untar", tgz, "to", dst)
 }
 
-func readCommand(path string) string {
-	stagingInfo, err := os.Open(path)
+func readCommand() (string, error) {
+	if command, err := parseProcfile("/app/Procfile"); err == nil {
+		return command, nil
+	} else if command, err = parseReleaseYml("/app/release.yml"); err == nil {
+		return command, nil
+	}
+	return "", ErrNoCommandFound("No command found, please specify one in your Procfile.")
+}
+
+func parseProcfile(path string) (string, error) {
+	if _, err := os.Stat(path); err == nil {
+		buf, err := ioutil.ReadFile(path)
+		procfile := string(buf)
+		check(err, CodeFailedSetup, "parse Procfile")
+
+		processes := make(map[string]string)
+
+		for _, line := range strings.Split(procfile, "\n") {
+			array := strings.SplitAfterN(line, ":", 2)
+			if len(array) == 2 {
+				processes[array[0]] = array[1]
+			}
+		}
+
+		if process, ok := processes["web:"]; ok {
+			return process, nil
+		}
+	}
+
+	return "", ErrProcfileNoProcess("No web process in Procfile.")
+}
+
+func parseReleaseYml(path string) (string, error) {
+	releaseYml, err := ioutil.ReadFile(path)
 	check(err, CodeFailedSetup, "read start command")
 	var info struct {
-		StartCommand string `json:"start_command"`
+		Addons              []string          `yaml:"addons"`
+		DefaultProcessTypes map[string]string `yaml:"default_process_types"`
 	}
-	err = json.NewDecoder(stagingInfo).Decode(&info)
-	check(err, CodeFailedSetup, "parse start command")
-	return info.StartCommand
+	err = yaml.Unmarshal(releaseYml, &info)
+	if err == nil {
+		return info.DefaultProcessTypes["web"], nil
+	} else {
+		return "", err
+	}
 }
 
 func chownAll(user, group, path string) {
