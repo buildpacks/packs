@@ -32,13 +32,10 @@ mkdir -p ${ENV_DIR}
   ${BUILDPACKS_DIR} \
   ${APP_DIR}/release.yml
 
-echo "Making slug..."
 /packs/cytokine make-slug /tmp/slug.tgz ${APP_DIR}
 
-echo "Moving slug..."
 mkdir -p $(dirname ${SLUG_FILE})
 mv /tmp/slug.tgz ${SLUG_FILE}
 
-echo "Building cache..."
 mkdir -p $(dirname ${CACHE_FILE})
 tar czf ${CACHE_FILE} -C ${CACHE_DIR} .
