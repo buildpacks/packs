@@ -111,13 +111,18 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get config for", repoName)
 	}
+	if repoConfig.Config.Labels == nil {
+		repoConfig.Config.Labels = make(map[string]string)
+	}
 	stackDigest, err := stackImage.Digest()
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
 	}
 	var buildMetadata build.Metadata
-	if err := json.Unmarshal([]byte(repoConfig.Config.Labels[build.Label]), &buildMetadata); err != nil {
-		sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
+	if orig := repoConfig.Config.Labels[build.Label]; orig != "" {
+		if err := json.Unmarshal([]byte(orig), &buildMetadata); err != nil {
+			sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
+		}
 	}
 	buildMetadata.Stack.Name = stackRef.Context().String()
 	buildMetadata.Stack.Version = stackDigest.String()

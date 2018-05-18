@@ -222,7 +222,7 @@ func fileSHA(path string) string {
 
 // TODO: test with /dev/null
 func setKeyJSON(path, key string, value interface{}) error {
-	f, err := os.Open(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return sys.Fail(err, "open metadata")
 	}
