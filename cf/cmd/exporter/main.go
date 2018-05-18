@@ -20,8 +20,6 @@ import (
 	"encoding/json"
 )
 
-const buildLabel = "sh.packs.build"
-
 func main() {
 	defer sys.Cleanup()
 
@@ -131,7 +129,7 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get encode metadata for", repoName)
 	}
-	repoConfig.Config.Labels[buildLabel] = string(buildJSON)
+	repoConfig.Config.Labels[build.Label] = string(buildJSON)
 	if err := remote.Write(repoTag, repoImage, repoAuth, http.DefaultTransport, remote.WriteOptions{
 		MountPaths: repoMounts,
 	}); err != nil {

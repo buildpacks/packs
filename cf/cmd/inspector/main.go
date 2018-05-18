@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1/remote"
 
+	"github.com/sclevine/packs/cf/build"
 	"github.com/sclevine/packs/cf/sys"
 )
 
@@ -59,7 +60,7 @@ func main() {
 	}
 	defer metadataFile.Close()
 
-	if err := json.NewEncoder(metadataFile).Encode(config.Config.Labels["sh.packs.build"]); err != nil {
+	if err := json.NewEncoder(metadataFile).Encode(config.Config.Labels[build.Label]); err != nil {
 		defer os.RemoveAll(metadataPath)
 		sys.Fatal(err, sys.CodeFailed, "write metadata to", metadataPath)
 	}

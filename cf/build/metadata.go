@@ -2,6 +2,8 @@ package build
 
 import "code.cloudfoundry.org/buildpackapplifecycle"
 
+const Label = "sh.packs.build"
+
 type Metadata struct {
 	App        AppMetadata                               `json:"app"`
 	Buildpacks []buildpackapplifecycle.BuildpackMetadata `json:"buildpacks"`
