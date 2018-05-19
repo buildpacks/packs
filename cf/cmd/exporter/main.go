@@ -129,7 +129,7 @@ func main() {
 		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
 	}
 	buildMetadata.Stack.Name = stackRef.Context().String()
-	buildMetadata.Stack.Version = stackDigest.String()
+	buildMetadata.Stack.SHA = stackDigest.String()
 	if dropletMetadata != nil {
 		buildMetadata.App = dropletMetadata.PackMetadata.App
 		buildMetadata.Buildpacks = dropletMetadata.Buildpacks
@@ -186,7 +186,7 @@ func appendLayer(origImage v1.Image, tar string) (image v1.Image, err error) {
 }
 
 func rebaseLayer(origImage, newStackImage v1.Image, oldStack build.StackMetadata) (image v1.Image, oldStackRef name.Reference, err error) {
-	oldStackDigest, err := name.NewDigest(oldStack.Name+"@"+oldStack.Version, name.WeakValidation)
+	oldStackDigest, err := name.NewDigest(oldStack.Name+"@"+oldStack.SHA, name.WeakValidation)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -82,13 +82,13 @@ func main() {
 		}
 	}
 
-	if err := mkdir(dropletDir, metadataDir, cacheTarDir); err != nil {
+	if err := vcapDir(dropletDir, metadataDir, cacheTarDir); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "prepare destination directories")
 	}
-	if err := mkdirAll(buildDir, cacheDir, "/home/vcap/tmp"); err != nil {
+	if err := vcapDirAll(buildDir, cacheDir, "/home/vcap/tmp"); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "prepare source directories")
 	}
-	if err := addBuildpacks("/buildpacks", buildpacksDir); err != nil {
+	if err := copyBuildpacks("/buildpacks", buildpacksDir); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "add buildpacks")
 	}
 
@@ -124,8 +124,8 @@ func main() {
 	}
 	if err := setKeyJSON(metadataJSON, "pack_metadata", build.PackMetadata{
 		App: build.AppMetadata{
-			Name:    appName,
-			Version: appVersion,
+			Name: appName,
+			SHA:  appVersion,
 		},
 	}); err != nil {
 		sys.Fatal(err, sys.CodeFailed, "write metadata")
@@ -174,7 +174,7 @@ func cmpDir(dirs ...string) bool {
 	return true
 }
 
-func mkdir(dirs ...string) error {
+func vcapDir(dirs ...string) error {
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0777); err != nil {
 			return sys.Fail(err, "make directory", dir)
@@ -186,7 +186,7 @@ func mkdir(dirs ...string) error {
 	return nil
 }
 
-func mkdirAll(dirs ...string) error {
+func vcapDirAll(dirs ...string) error {
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0777); err != nil {
 			return sys.Fail(err, "make directory", dir)
@@ -245,7 +245,7 @@ func setKeyJSON(path, key string, value interface{}) error {
 	return nil
 }
 
-func addBuildpacks(src, dst string) error {
+func copyBuildpacks(src, dst string) error {
 	files, err := ioutil.ReadDir(src)
 	if os.IsNotExist(err) {
 		return nil

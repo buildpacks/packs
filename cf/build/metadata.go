@@ -20,11 +20,11 @@ type PackMetadata struct {
 }
 
 type AppMetadata struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name string `json:"name"`
+	SHA  string `json:"sha"`
 }
 
 type StackMetadata struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name string `json:"name"`
+	SHA  string `json:"sha"`
 }
