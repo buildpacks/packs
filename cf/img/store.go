@@ -11,39 +11,66 @@ import (
 )
 
 type Store interface {
+	Ref() name.Reference
+	Digest() (v1.Hash, error)
 	Image() (v1.Image, error)
 	Write(image v1.Image) error
-	Source(refs ...name.Reference)
+	Source(refs ...name.Repository)
 }
 
-func NewRepo(ref name.Reference) (Store, error) {
+func NewRegistry(ref name.Reference) (Store, error) {
 	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
 	if err != nil {
 		return nil, err
 	}
-	return &repoStore{ref: ref, auth: auth}, nil
+	return &registryStore{ref: ref, auth: auth}, nil
 }
 
-type repoStore struct {
+type registryStore struct {
 	ref    name.Reference
 	auth   authn.Authenticator
 	mounts []name.Repository
+	cache  v1.Image
 }
 
-func (r *repoStore) Image() (v1.Image, error) {
-	return remote.Image(r.ref, r.auth, http.DefaultTransport)
+func (r *registryStore) Ref() name.Reference {
+	return r.ref
 }
 
-func (r *repoStore) Write(image v1.Image) error {
-	return remote.Write(r.ref, image, r.auth, http.DefaultTransport, remote.WriteOptions{
+func (r *registryStore) Digest() (v1.Hash, error) {
+	image, err := r.Image()
+	if err != nil {
+		return v1.Hash{}, err
+	}
+	return image.Digest()
+}
+
+func (r *registryStore) Image() (v1.Image, error) {
+	if r.cache != nil {
+		return r.cache, nil
+	}
+	image, err := remote.Image(r.ref, r.auth, http.DefaultTransport)
+	if err != nil {
+		return nil, err
+	}
+	r.cache = image
+	return image, nil
+}
+
+func (r *registryStore) Write(image v1.Image) error {
+	if err := remote.Write(r.ref, image, r.auth, http.DefaultTransport, remote.WriteOptions{
 		MountPaths: r.mounts,
-	})
+	}); err != nil {
+		return err
+	}
+	r.cache = image
+	return nil
 }
 
-func (r *repoStore) Source(refs ...name.Reference) {
-	for _, ref := range refs {
-		if r.ref.Context().RegistryStr() == ref.Context().RegistryStr() {
-			r.mounts = append(r.mounts, ref.Context())
+func (r *registryStore) Source(repos ...name.Repository) {
+	for _, repo := range repos {
+		if r.ref.Context().RegistryStr() == repo.RegistryStr() {
+			r.mounts = append(r.mounts, repo)
 		}
 	}
 }
@@ -56,13 +83,25 @@ type daemonStore struct {
 	tag name.Tag
 }
 
-func (r *daemonStore) Image() (v1.Image, error) {
-	return daemon.Image(r.tag, nil)
+func (d *daemonStore) Ref() name.Reference {
+	return d.tag
 }
 
-func (r *daemonStore) Write(image v1.Image) error {
-	_, err := daemon.Write(r.tag, image, daemon.WriteOptions{})
+func (d *daemonStore) Digest() (v1.Hash, error) {
+	image, err := d.Image()
+	if err != nil {
+		return v1.Hash{}, err
+	}
+	return image.Digest()
+}
+
+func (d *daemonStore) Image() (v1.Image, error) {
+	return daemon.Image(d.tag, nil)
+}
+
+func (d *daemonStore) Write(image v1.Image) error {
+	_, err := daemon.Write(d.tag, image, daemon.WriteOptions{})
 	return err
 }
 
-func (r *daemonStore) Source(refs ...name.Reference) {}
+func (d *daemonStore) Source(refs ...name.Repository) {}

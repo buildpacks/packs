@@ -11,12 +11,9 @@ import (
 
 	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1"
-	"github.com/google/go-containerregistry/v1/mutate"
-	"github.com/google/go-containerregistry/v1/tarball"
-
 	"github.com/sclevine/packs/cf/build"
-	"github.com/sclevine/packs/cf/sys"
 	"github.com/sclevine/packs/cf/img"
+	"github.com/sclevine/packs/cf/sys"
 )
 
 func main() {
@@ -31,7 +28,7 @@ func main() {
 	flag.StringVar(&dropletPath, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
 	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_DROPLET_METADATA_PATH"), "file containing droplet metadata")
 	flag.StringVar(&stackName, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
-	flag.BoolVar(&local, "local", isTruthy(os.Getenv("PACK_IMAGE_LOCAL")), "export to local docker daemon")
+	flag.BoolVar(&local, "local", isTruthy(os.Getenv("PACK_IMAGE_LOCAL")), "export to docker daemon")
 	flag.Parse()
 
 	repoName := flag.Arg(0)
@@ -52,7 +49,7 @@ func main() {
 	if local {
 		repoStore = img.NewDaemon(repoTag)
 	} else {
-		repoStore, err = img.NewRepo(repoTag)
+		repoStore, err = img.NewRegistry(repoTag)
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "access", repoName)
 		}
@@ -62,13 +59,9 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeInvalidArgs, "parse stack", stackName)
 	}
-	stackStore, err := img.NewRepo(stackRef)
+	stackStore, err := img.NewRegistry(stackRef)
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "access", stackName)
-	}
-	stackImage, err := stackStore.Image()
-	if err != nil {
-		sys.Fatal(err, sys.CodeNotFound, "get image", stackName)
 	}
 
 	var (
@@ -93,39 +86,30 @@ func main() {
 			sys.Fatal(err, sys.CodeFailed, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
-		repoImage, err = appendLayer(stackImage, layer)
+		repoImage, err = img.Append(stackStore, layer)
 		if err != nil {
-			sys.Fatal(err, sys.CodeFailed, "append droplet to", stackName, "for", repoName)
+			sys.Fatal(err, sys.CodeFailed, "append droplet to", stackName)
 		}
-		repoStore.Source(stackRef)
+		repoStore.Source(stackRef.Context())
 	} else {
-		origImage, err := repoStore.Image()
-		if err != nil {
-			sys.Fatal(err, sys.CodeNotFound, "get image", repoName)
-		}
-		origConfig, err := origImage.ConfigFile()
-		if err != nil {
-			sys.Fatal(err, sys.CodeFailed, "get config file for", repoName)
-		}
-		if err := json.Unmarshal([]byte(origConfig.Config.Labels[build.Label]), &buildMetadata); err != nil {
-			sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
-		}
-		var oldBaseRef name.Reference
-		repoImage, oldBaseRef, err = rebaseLayer(origImage, stackImage, buildMetadata.Stack)
+		var sources []name.Repository
+		repoImage, sources, err = img.Rebase(repoStore, stackStore, func(labels map[string]string) (img.Store, error) {
+			if err := json.Unmarshal([]byte(labels[build.Label]), &buildMetadata); err != nil {
+				sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
+			}
+			digestName := buildMetadata.Stack.Name + "@" + buildMetadata.Stack.SHA
+			oldStackDigest, err := name.NewDigest(digestName, name.WeakValidation)
+			if err != nil {
+				return nil, err
+			}
+			return img.NewRegistry(oldStackDigest)
+		})
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "rebase", repoName, "on", stackName)
 		}
-		repoStore.Source(oldBaseRef, stackRef)
+		repoStore.Source(sources...)
 	}
-	repoConfigFile, err := repoImage.ConfigFile()
-	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "get config file for", repoName)
-	}
-	repoConfig := *repoConfigFile.Config.DeepCopy()
-	if repoConfig.Labels == nil {
-		repoConfig.Labels = map[string]string{}
-	}
-	stackDigest, err := stackImage.Digest()
+	stackDigest, err := stackStore.Digest()
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
 	}
@@ -139,11 +123,9 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get encode metadata for", repoName)
 	}
-	repoConfig.Labels[build.Label] = string(buildJSON)
-
-	repoImage, err = mutate.Config(repoImage, repoConfig)
+	repoImage, err = img.Label(repoImage, build.Label, string(buildJSON))
 	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "set config file for", repoName)
+		sys.Fatal(err, sys.CodeFailed, "label", repoName)
 	}
 	if err := repoStore.Write(repoImage); err != nil {
 		sys.Fatal(err, sys.CodeFailedUpdate, "write", repoName)
@@ -174,34 +156,6 @@ func dropletToLayer(dropletPath string) (layer string, err error) {
 		return "", sys.Fail(err, "tar", tmpDir, "to", layer)
 	}
 	return layer, nil
-}
-
-func appendLayer(origImage v1.Image, tar string) (image v1.Image, err error) {
-	layer, err := tarball.LayerFromFile(tar)
-	if err != nil {
-		return nil, err
-	}
-	return mutate.AppendLayers(origImage, layer)
-}
-
-func rebaseLayer(origImage, newStackImage v1.Image, oldStack build.StackMetadata) (image v1.Image, oldStackRef name.Reference, err error) {
-	oldStackDigest, err := name.NewDigest(oldStack.Name+"@"+oldStack.SHA, name.WeakValidation)
-	if err != nil {
-		return nil, nil, err
-	}
-	oldStackStore, err := img.NewRepo(oldStackDigest)
-	if err != nil {
-		return nil, nil, err
-	}
-	oldStackImage, err := oldStackStore.Image()
-	if err != nil {
-		return nil, nil, err
-	}
-	image, err = mutate.Rebase(origImage, oldStackImage, newStackImage, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	return image, oldStackDigest, nil
 }
 
 func configureCreds(registry, domain, command string, args ...string) error {
