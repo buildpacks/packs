@@ -41,25 +41,23 @@ func main() {
 		sys.Fatal(err, sys.CodeFailed, "setup GCR credentials")
 	}
 
-	repoTag, err := name.NewTag(repoName, name.WeakValidation)
-	if err != nil {
-		sys.Fatal(err, sys.CodeInvalidArgs, "parse repository", repoName)
-	}
-	var repoStore img.Store
+	var (
+		repoStore img.Store
+		err       error
+	)
 	if local {
-		repoStore = img.NewDaemon(repoTag)
+		repoStore, err = img.NewDaemon(repoName)
+		if err != nil {
+			sys.Fatal(err, sys.CodeFailed, "access", repoName)
+		}
 	} else {
-		repoStore, err = img.NewRegistry(repoTag)
+		repoStore, err = img.NewRegistry(repoName)
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "access", repoName)
 		}
 	}
 
-	stackRef, err := name.ParseReference(stackName, name.WeakValidation)
-	if err != nil {
-		sys.Fatal(err, sys.CodeInvalidArgs, "parse stack", stackName)
-	}
-	stackStore, err := img.NewRegistry(stackRef)
+	stackStore, err := img.NewRegistry(stackName)
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "access", stackName)
 	}
@@ -90,7 +88,7 @@ func main() {
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "append droplet to", stackName)
 		}
-		repoStore.Source(stackRef.Context())
+		repoStore.Source(stackStore.Ref().Context())
 	} else {
 		var sources []name.Repository
 		repoImage, sources, err = img.Rebase(repoStore, stackStore, func(labels map[string]string) (img.Store, error) {
@@ -98,11 +96,7 @@ func main() {
 				sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
 			}
 			digestName := buildMetadata.Stack.Name + "@" + buildMetadata.Stack.SHA
-			oldStackDigest, err := name.NewDigest(digestName, name.WeakValidation)
-			if err != nil {
-				return nil, err
-			}
-			return img.NewRegistry(oldStackDigest)
+			return img.NewRegistry(digestName)
 		})
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "rebase", repoName, "on", stackName)
@@ -113,7 +107,7 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
 	}
-	buildMetadata.Stack.Name = stackRef.Context().String()
+	buildMetadata.Stack.Name = stackStore.Ref().Context().String()
 	buildMetadata.Stack.SHA = stackDigest.String()
 	if dropletMetadata != nil {
 		buildMetadata.App = dropletMetadata.PackMetadata.App

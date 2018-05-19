@@ -18,12 +18,16 @@ type Store interface {
 	Source(refs ...name.Repository)
 }
 
-func NewRegistry(ref name.Reference) (Store, error) {
-	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
+func NewRegistry(ref string) (Store, error) {
+	r, err := name.ParseReference(ref, name.WeakValidation)
 	if err != nil {
 		return nil, err
 	}
-	return &registryStore{ref: ref, auth: auth}, nil
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	if err != nil {
+		return nil, err
+	}
+	return &registryStore{ref: r, auth: auth}, nil
 }
 
 type registryStore struct {
@@ -75,8 +79,12 @@ func (r *registryStore) Source(repos ...name.Repository) {
 	}
 }
 
-func NewDaemon(tag name.Tag) Store {
-	return &daemonStore{tag: tag}
+func NewDaemon(tag string) (Store, error) {
+	t, err := name.NewTag(tag, name.WeakValidation)
+	if err != nil {
+		return nil, err
+	}
+	return &daemonStore{tag: t}, nil
 }
 
 type daemonStore struct {
