@@ -5,20 +5,18 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/google/go-containerregistry/authn"
 	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1"
 	"github.com/google/go-containerregistry/v1/mutate"
-	"github.com/google/go-containerregistry/v1/remote"
 	"github.com/google/go-containerregistry/v1/tarball"
 
 	"github.com/sclevine/packs/cf/build"
 	"github.com/sclevine/packs/cf/sys"
+	"github.com/sclevine/packs/cf/img"
 )
 
 func main() {
@@ -28,10 +26,12 @@ func main() {
 		dropletPath  string
 		metadataPath string
 		stackName    string
+		local        bool
 	)
 	flag.StringVar(&dropletPath, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
 	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_DROPLET_METADATA_PATH"), "file containing droplet metadata")
 	flag.StringVar(&stackName, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
+	flag.BoolVar(&local, "local", isTruthy(os.Getenv("PACK_IMAGE_LOCAL")), "export to local docker daemon")
 	flag.Parse()
 
 	repoName := flag.Arg(0)
@@ -46,29 +46,33 @@ func main() {
 
 	repoTag, err := name.NewTag(repoName, name.WeakValidation)
 	if err != nil {
-		sys.Fatal(err, sys.CodeInvalidArgs, "parse repository reference:", repoName)
+		sys.Fatal(err, sys.CodeInvalidArgs, "parse repository", repoName)
 	}
-	repoAuth, err := authn.DefaultKeychain.Resolve(repoTag.Context().Registry)
-	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "authenticate with repository registry")
+	var repoStore img.Store
+	if local {
+		repoStore = img.NewDaemon(repoTag)
+	} else {
+		repoStore, err = img.NewRepo(repoTag)
+		if err != nil {
+			sys.Fatal(err, sys.CodeFailed, "access", repoName)
+		}
 	}
 
 	stackRef, err := name.ParseReference(stackName, name.WeakValidation)
 	if err != nil {
-		sys.Fatal(err, sys.CodeInvalidArgs, "parse stack reference:", stackName)
+		sys.Fatal(err, sys.CodeInvalidArgs, "parse stack", stackName)
 	}
-	stackAuth, err := authn.DefaultKeychain.Resolve(stackRef.Context().Registry)
+	stackStore, err := img.NewRepo(stackRef)
 	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "authenticate with stack registry")
+		sys.Fatal(err, sys.CodeFailed, "access", stackName)
 	}
-	stackImage, err := remote.Image(stackRef, stackAuth, http.DefaultTransport)
+	stackImage, err := stackStore.Image()
 	if err != nil {
-		sys.Fatal(err, sys.CodeNotFound, "locate stack image:", stackName)
+		sys.Fatal(err, sys.CodeNotFound, "get image", stackName)
 	}
 
 	var (
 		repoImage       v1.Image
-		repoMounts      []name.Repository
 		dropletMetadata *build.DropletMetadata
 		buildMetadata   build.Metadata
 	)
@@ -93,13 +97,11 @@ func main() {
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "append droplet to", stackName, "for", repoName)
 		}
-		if stackRef.Context().RegistryStr() == repoTag.Context().RegistryStr() {
-			repoMounts = []name.Repository{stackRef.Context()}
-		}
+		repoStore.Source(stackRef)
 	} else {
-		origImage, err := remote.Image(repoTag, repoAuth, http.DefaultTransport)
+		origImage, err := repoStore.Image()
 		if err != nil {
-			sys.Fatal(err, sys.CodeNotFound, "locate repository image:", repoName)
+			sys.Fatal(err, sys.CodeNotFound, "get image", repoName)
 		}
 		origConfig, err := origImage.ConfigFile()
 		if err != nil {
@@ -113,8 +115,7 @@ func main() {
 		if err != nil {
 			sys.Fatal(err, sys.CodeFailed, "rebase", repoName, "on", stackName)
 		}
-		// TODO: consider filtering on repoTag.Context().RegistryStr() and excluding repoTag.Context()
-		repoMounts = []name.Repository{repoTag.Context(), oldBaseRef.Context(), stackRef.Context()}
+		repoStore.Source(oldBaseRef, stackRef)
 	}
 	repoConfigFile, err := repoImage.ConfigFile()
 	if err != nil {
@@ -144,9 +145,7 @@ func main() {
 	if err != nil {
 		sys.Fatal(err, sys.CodeFailed, "set config file for", repoName)
 	}
-	if err := remote.Write(repoTag, repoImage, repoAuth, http.DefaultTransport, remote.WriteOptions{
-		MountPaths: repoMounts,
-	}); err != nil {
+	if err := repoStore.Write(repoImage); err != nil {
 		sys.Fatal(err, sys.CodeFailedUpdate, "write", repoName)
 	}
 }
@@ -190,11 +189,11 @@ func rebaseLayer(origImage, newStackImage v1.Image, oldStack build.StackMetadata
 	if err != nil {
 		return nil, nil, err
 	}
-	oldStackAuth, err := authn.DefaultKeychain.Resolve(oldStackDigest.Context().Registry)
+	oldStackStore, err := img.NewRepo(oldStackDigest)
 	if err != nil {
 		return nil, nil, err
 	}
-	oldStackImage, err := remote.Image(oldStackDigest, oldStackAuth, http.DefaultTransport)
+	oldStackImage, err := oldStackStore.Image()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -213,4 +212,8 @@ func configureCreds(registry, domain, command string, args ...string) error {
 		fmt.Printf("Configured credentials for: %s\n", domain)
 	}
 	return nil
+}
+
+func isTruthy(s string) bool {
+	return s == "true" || s == "1"
 }
