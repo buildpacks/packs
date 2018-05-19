@@ -6,7 +6,7 @@ ARG buildpacks
 WORKDIR /workspace
 
 RUN mkdir -p /packs
-RUN curl -o /packs/cytokine -L https://heroku-packs.s3.amazonaws.com/cytokine-4f84ba5070ed04b9410512cdba8fc16704824a35
+RUN curl -o /packs/cytokine -L https://heroku-packs.s3.amazonaws.com/cytokine-a2a26fe7f9e1f05489e743fc55b863eb9079d94c
 RUN chmod +x /packs/cytokine
 
 RUN /packs/cytokine get-default-buildpacks \
