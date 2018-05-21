@@ -1,4 +1,5 @@
 ARG stack
+
 FROM cloudfoundry/${stack}
 
 ARG go_version=1.9.4
@@ -26,3 +27,8 @@ RUN \
   CGO_ENABLED=0 go build -a -installsuffix static -o /lifecycle/shell code.cloudfoundry.org/buildpackapplifecycle/shell/shell && \
   rm -rf /tmp/diego-release /usr/local/go
 
+RUN mkdir -p /packs
+COPY builder /packs/
+
+
+WORKDIR /workspace

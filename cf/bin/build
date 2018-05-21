@@ -19,7 +19,7 @@ docker pull "cloudfoundry/${stack}"
 
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:latest" images/base
 
-docker build --build-arg "stack=${stack}" --build-arg buildpacks="$(<"${stack}.json")" -t "packs/${stack}:build" images/build
+docker build --build-arg "stack=${stack}" --build-arg buildpacks="$(jq -cM . "${stack}.json")" -t "packs/${stack}:build" images/build
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:run" images/run
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:export" images/export
 docker build --build-arg "stack=${stack}" -t "packs/${stack}:network" images/network

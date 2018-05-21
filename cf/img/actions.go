@@ -7,21 +7,25 @@ import (
 	"github.com/google/go-containerregistry/v1/tarball"
 )
 
-func Append(s Store, tar string) (v1.Image, error) {
-	image, err := s.Image()
+func Append(s Store, tar string) (v1.Image, []name.Repository, error) {
+	baseImage, err := s.Image()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	layer, err := tarball.LayerFromFile(tar)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return mutate.AppendLayers(image, layer)
+	image, err := mutate.AppendLayers(baseImage, layer)
+	if err != nil {
+		return nil, nil, err
+	}
+	return image, []name.Repository{s.Ref().Context()}, nil
 }
 
-type BaseFinder func(labels map[string]string) (Store, error)
+type StoreFinder func(labels map[string]string) (Store, error)
 
-func Rebase(orig Store, newBase Store, baseFinder BaseFinder) (v1.Image, []name.Repository, error) {
+func Rebase(orig Store, newBase Store, oldBaseFinder StoreFinder) (v1.Image, []name.Repository, error) {
 	origImage, err := orig.Image()
 	if err != nil {
 		return nil, nil, err
@@ -30,7 +34,7 @@ func Rebase(orig Store, newBase Store, baseFinder BaseFinder) (v1.Image, []name.
 	if err != nil {
 		return nil, nil, err
 	}
-	oldBase, err := baseFinder(origConfig.Config.Labels)
+	oldBase, err := oldBaseFinder(origConfig.Config.Labels)
 	if err != nil {
 		return nil, nil, err
 	}

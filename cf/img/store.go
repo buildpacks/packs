@@ -14,8 +14,7 @@ type Store interface {
 	Ref() name.Reference
 	Digest() (v1.Hash, error)
 	Image() (v1.Image, error)
-	Write(image v1.Image) error
-	Source(refs ...name.Repository)
+	Write(image v1.Image, sources ...name.Repository) error
 }
 
 func NewRegistry(ref string) (Store, error) {
@@ -61,22 +60,20 @@ func (r *registryStore) Image() (v1.Image, error) {
 	return image, nil
 }
 
-func (r *registryStore) Write(image v1.Image) error {
+func (r *registryStore) Write(image v1.Image, sources ...name.Repository) error {
+	var mounts []name.Repository
+	for _, source := range sources {
+		if r.ref.Context().RegistryStr() == source.RegistryStr() {
+			mounts = append(mounts, source)
+		}
+	}
 	if err := remote.Write(r.ref, image, r.auth, http.DefaultTransport, remote.WriteOptions{
-		MountPaths: r.mounts,
+		MountPaths: mounts,
 	}); err != nil {
 		return err
 	}
 	r.cache = image
 	return nil
-}
-
-func (r *registryStore) Source(repos ...name.Repository) {
-	for _, repo := range repos {
-		if r.ref.Context().RegistryStr() == repo.RegistryStr() {
-			r.mounts = append(r.mounts, repo)
-		}
-	}
 }
 
 func NewDaemon(tag string) (Store, error) {
@@ -107,9 +104,7 @@ func (d *daemonStore) Image() (v1.Image, error) {
 	return daemon.Image(d.tag, nil)
 }
 
-func (d *daemonStore) Write(image v1.Image) error {
+func (d *daemonStore) Write(image v1.Image, _ ...name.Repository) error {
 	_, err := daemon.Write(d.tag, image, daemon.WriteOptions{})
 	return err
 }
-
-func (d *daemonStore) Source(refs ...name.Repository) {}

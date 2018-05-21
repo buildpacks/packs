@@ -11,125 +11,127 @@ import (
 
 	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1"
+
+	"code.cloudfoundry.org/buildpackapplifecycle"
 	"github.com/sclevine/packs/cf/build"
 	"github.com/sclevine/packs/cf/img"
 	"github.com/sclevine/packs/cf/sys"
 )
 
-func main() {
-	defer sys.Cleanup()
+var (
+	dropletPath  string
+	metadataPath string
+	repoName     string
+	stackName    string
+	useDaemon    bool
+)
 
-	var (
-		dropletPath  string
-		metadataPath string
-		stackName    string
-		local        bool
-	)
+func init() {
 	flag.StringVar(&dropletPath, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
 	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_DROPLET_METADATA_PATH"), "file containing droplet metadata")
 	flag.StringVar(&stackName, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
-	flag.BoolVar(&local, "local", isTruthy(os.Getenv("PACK_IMAGE_LOCAL")), "export to docker daemon")
+	flag.BoolVar(&useDaemon, "daemon", sys.BoolEnv("PACK_USE_DAEMON"), "export to docker daemon")
+}
+
+func main() {
 	flag.Parse()
+	repoName = flag.Arg(0)
+	if flag.NArg() != 1 || repoName == "" || stackName == "" || (metadataPath != "" && dropletPath == "") {
+		sys.Exit(sys.FailCode(sys.CodeInvalidArgs, "parse arguments"))
+	}
+	sys.Exit(export())
+}
 
-	repoName := flag.Arg(0)
-	if flag.NArg() != 1 || repoName == "" || stackName == "" {
-		sys.Exit(sys.CodeInvalidArgs, "invalid arguments")
+func export() error {
+	newRepoStore := img.NewRegistry
+	if useDaemon {
+		newRepoStore = img.NewDaemon
+	}
+	repoStore, err := newRepoStore(repoName)
+	if err != nil {
+		return sys.FailErr(err, "access", repoName)
 	}
 
-	registry := strings.ToLower(strings.SplitN(repoName, "/", 2)[0])
-	if err := configureCreds(registry, "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
-		sys.Fatal(err, sys.CodeFailed, "setup GCR credentials")
-	}
-
-	var (
-		repoStore img.Store
-		err       error
-	)
-	if local {
-		repoStore, err = img.NewDaemon(repoName)
-		if err != nil {
-			sys.Fatal(err, sys.CodeFailed, "access", repoName)
-		}
-	} else {
-		repoStore, err = img.NewRegistry(repoName)
-		if err != nil {
-			sys.Fatal(err, sys.CodeFailed, "access", repoName)
-		}
+	if err := configureCreds(repoStore.Ref(), "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
+		return sys.FailErr(err, "setup GCR credentials")
 	}
 
 	stackStore, err := img.NewRegistry(stackName)
 	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "access", stackName)
+		return sys.FailErr(err, "access", stackName)
 	}
 
 	var (
-		repoImage       v1.Image
-		dropletMetadata *build.DropletMetadata
-		buildMetadata   build.Metadata
+		repoImage v1.Image
+		sources   []name.Repository
+		metadata  build.Metadata
 	)
 	if dropletPath != "" {
 		if metadataPath != "" {
-			metadataFile, err := os.Open(metadataPath)
+			var err error
+			metadata.App, metadata.Buildpacks, err = readDropletMetadata(metadataPath)
 			if err != nil {
-				sys.Fatal(err, sys.CodeFailed, "failed to open", metadataPath)
-			}
-			defer metadataFile.Close()
-			dropletMetadata = &build.DropletMetadata{}
-			if err := json.NewDecoder(metadataFile).Decode(&dropletMetadata); err != nil {
-				sys.Fatal(err, sys.CodeFailed, "failed to decode metadata")
+				return sys.FailErr(err, "get droplet metadata")
 			}
 		}
 		layer, err := dropletToLayer(dropletPath)
 		if err != nil {
-			sys.Fatal(err, sys.CodeFailed, "transform", dropletPath, "into layer")
+			return sys.FailErr(err, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
-		repoImage, err = img.Append(stackStore, layer)
+		repoImage, sources, err = img.Append(stackStore, layer)
 		if err != nil {
-			sys.Fatal(err, sys.CodeFailed, "append droplet to", stackName)
+			return sys.FailErr(err, "append droplet to", stackName)
 		}
-		repoStore.Source(stackStore.Ref().Context())
 	} else {
-		var sources []name.Repository
 		repoImage, sources, err = img.Rebase(repoStore, stackStore, func(labels map[string]string) (img.Store, error) {
-			if err := json.Unmarshal([]byte(labels[build.Label]), &buildMetadata); err != nil {
-				sys.Fatal(err, sys.CodeFailed, "get build metadata for", repoName)
+			if err := json.Unmarshal([]byte(labels[build.Label]), &metadata); err != nil {
+				return nil, sys.FailErr(err, "get build metadata for", repoName)
 			}
-			digestName := buildMetadata.Stack.Name + "@" + buildMetadata.Stack.SHA
+			digestName := metadata.Stack.Name + "@" + metadata.Stack.SHA
 			return img.NewRegistry(digestName)
 		})
 		if err != nil {
-			sys.Fatal(err, sys.CodeFailed, "rebase", repoName, "on", stackName)
+			return sys.FailErr(err, "rebase", repoName, "on", stackName)
 		}
-		repoStore.Source(sources...)
 	}
 	stackDigest, err := stackStore.Digest()
 	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "get digest for", stackName)
+		return sys.FailErr(err, "get digest for", stackName)
 	}
-	buildMetadata.Stack.Name = stackStore.Ref().Context().String()
-	buildMetadata.Stack.SHA = stackDigest.String()
-	if dropletMetadata != nil {
-		buildMetadata.App = dropletMetadata.PackMetadata.App
-		buildMetadata.Buildpacks = dropletMetadata.Buildpacks
-	}
-	buildJSON, err := json.Marshal(buildMetadata)
+	metadata.Stack.Name = stackStore.Ref().Context().String()
+	metadata.Stack.SHA = stackDigest.String()
+	buildJSON, err := json.Marshal(metadata)
 	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "get encode metadata for", repoName)
+		return sys.FailErr(err, "get encode metadata for", repoName)
 	}
 	repoImage, err = img.Label(repoImage, build.Label, string(buildJSON))
 	if err != nil {
-		sys.Fatal(err, sys.CodeFailed, "label", repoName)
+		return sys.FailErr(err, "label", repoName)
 	}
-	if err := repoStore.Write(repoImage); err != nil {
-		sys.Fatal(err, sys.CodeFailedUpdate, "write", repoName)
+	if err := repoStore.Write(repoImage, sources...); err != nil {
+		return sys.FailErrCode(err, sys.CodeFailedUpdate, "write", repoName)
 	}
+	return nil
+}
+
+func readDropletMetadata(path string) (build.AppMetadata, []buildpackapplifecycle.BuildpackMetadata, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return build.AppMetadata{}, nil, sys.FailErr(err, "failed to open", path)
+	}
+	defer f.Close()
+	metadata := build.DropletMetadata{}
+	if err := json.NewDecoder(f).Decode(&metadata); err != nil {
+		return build.AppMetadata{}, nil, sys.FailErr(err, "failed to decode", path)
+	}
+	return metadata.PackMetadata.App, metadata.Buildpacks, nil
 }
 
 func dropletToLayer(dropletPath string) (layer string, err error) {
 	tmpDir, err := ioutil.TempDir("", "pack.export.layer")
 	if err != nil {
-		return "", sys.Fail(err, "create temp directory")
+		return "", sys.FailErr(err, "create temp directory")
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -137,31 +139,29 @@ func dropletToLayer(dropletPath string) (layer string, err error) {
 	dropletRoot := filepath.Join(tmpDir, "home", "vcap")
 
 	if err := os.MkdirAll(dropletRoot, 0777); err != nil {
-		return "", sys.Fail(err, "setup droplet directory")
+		return "", sys.FailErr(err, "setup droplet directory")
 	}
 	if _, err := sys.Run("tar", "-C", dropletRoot, "-xzf", dropletPath); err != nil {
-		return "", sys.Fail(err, "untar", dropletPath, "to", dropletRoot)
+		return "", sys.FailErr(err, "untar", dropletPath, "to", dropletRoot)
 	}
 	if _, err := sys.Run("chown", "-R", "vcap:vcap", dropletRoot); err != nil {
-		return "", sys.Fail(err, "recursively chown", dropletRoot, "to", "vcap:vcap")
+		return "", sys.FailErr(err, "recursively chown", dropletRoot, "to", "vcap:vcap")
 	}
 	if _, err := sys.Run("tar", "-C", tmpDir, "-czf", layer, "home"); err != nil {
 		defer os.Remove(layer)
-		return "", sys.Fail(err, "tar", tmpDir, "to", layer)
+		return "", sys.FailErr(err, "tar", tmpDir, "to", layer)
 	}
 	return layer, nil
 }
 
-func configureCreds(registry, domain, command string, args ...string) error {
+func configureCreds(ref name.Reference, domain, command string, args ...string) error {
+	registry := strings.ToLower(ref.Context().RegistryStr())
+	domain = strings.ToLower(domain)
 	if registry == domain || strings.HasSuffix(registry, "."+domain) {
 		if _, err := sys.Run(command, args...); err != nil {
-			return sys.Fail(err, "configure", domain, "credentials")
+			return sys.FailErr(err, "configure", domain, "credentials")
 		}
 		fmt.Printf("Configured credentials for: %s\n", domain)
 	}
 	return nil
-}
-
-func isTruthy(s string) bool {
-	return s == "true" || s == "1"
 }

@@ -8,50 +8,55 @@ import (
 	"strings"
 )
 
-type ExitCode int
-
 const (
-	CodeFailed      ExitCode = 1
-	CodeInvalidArgs          = iota + 3
+	CodeFailed      = 1
+	CodeInvalidArgs = iota + 3
 	CodeInvalidEnv
 	CodeNotFound
 	CodeFailedBuild
 	CodeFailedLaunch
-	CodeFailedInspect
 	CodeFailedUpdate
 )
 
-func Fail(err error, action ...string) error {
-	message := "failed to " + strings.Join(action, " ")
-	return fmt.Errorf("%s: %s", message, err)
+type ErrorFail struct {
+	Err    error
+	Code   int
+	Action []string
 }
 
-func Fatal(err error, code ExitCode, action ...string) {
-	var message string
-	if len(action) > 0 {
-		message = "failed to " + strings.Join(action, " ") + ": "
+func (e *ErrorFail) Error() string {
+	message := "failed to " + strings.Join(e.Action, " ")
+	if e.Err == nil {
+		return message
 	}
-	fmt.Fprintf(os.Stderr, "Error: %s%s\n", message, err)
-	panic(code)
+	return fmt.Sprintf("%s: %s", message, e.Err)
 }
 
-func Exit(code ExitCode, reason ...string) {
-	if len(reason) > 0 {
-		fmt.Fprintf(os.Stderr, "Exit: %s\n", strings.Join(reason, " "))
-	}
-	panic(code)
+func FailCode(code int, action ...string) error {
+	return FailErrCode(nil, code, action...)
 }
 
-func Cleanup() {
-	switch c := recover().(type) {
-	case ExitCode:
-		os.Exit(int(c))
-	default:
-		if c != nil {
-			fmt.Fprintf(os.Stderr, "Crash: %s\n", c)
-			os.Exit(int(CodeFailed))
-		}
+func FailErr(err error, action ...string) error {
+	code := CodeFailed
+	if err, ok := err.(*ErrorFail); ok {
+		code = err.Code
 	}
+	return FailErrCode(err, code, action...)
+}
+
+func FailErrCode(err error, code int, action ...string) error {
+	return &ErrorFail{Err: err, Code: code, Action: action}
+}
+
+func Exit(err error) {
+	if err == nil {
+		os.Exit(0)
+	}
+	fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+	if err, ok := err.(*ErrorFail); ok {
+		os.Exit(err.Code)
+	}
+	os.Exit(CodeFailed)
 }
 
 func Run(name string, arg ...string) (string, error) {
@@ -63,4 +68,9 @@ func Run(name string, arg ...string) (string, error) {
 		return "", fmt.Errorf("%s failed: %s\n%s", name, err, stderr.String())
 	}
 	return strings.TrimSpace(stdout.String()), nil
+}
+
+func BoolEnv(k string) bool {
+	v := os.Getenv(k)
+	return v == "true" || v == "1"
 }

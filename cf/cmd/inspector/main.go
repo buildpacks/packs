@@ -3,59 +3,50 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
-
-	"github.com/google/go-containerregistry/authn"
-	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1/remote"
 
 	"github.com/sclevine/packs/cf/build"
+	"github.com/sclevine/packs/cf/img"
 	"github.com/sclevine/packs/cf/sys"
 )
 
+var (
+	refName   string
+	useDaemon bool
+)
+
+func init() {
+	flag.BoolVar(&useDaemon, "daemon", sys.BoolEnv("PACK_USE_DAEMON"), "inspect image in docker daemon")
+}
+
 func main() {
-	defer sys.Cleanup()
-
-	var metadataPath string
-	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_IMAGE_METADATA_PATH"), "path for image metadata output")
 	flag.Parse()
+	refName = flag.Arg(0)
+	if flag.NArg() != 1 || refName == "" {
+		sys.Exit(sys.FailCode(sys.CodeInvalidArgs, "parse arguments"))
+	}
+	sys.Exit(inspect())
+}
 
-	input := flag.Arg(0)
-	if flag.NArg() != 1 || input == "" {
-		sys.Exit(sys.CodeInvalidArgs, "invalid arguments")
-	}
-
-	ref, err := name.ParseReference(input, name.WeakValidation)
+func inspect() error {
+	store, err := img.NewRegistry(refName)
 	if err != nil {
-		sys.Fatal(err, sys.CodeInvalidArgs, "parse reference")
+		return sys.FailErr(err, "access", refName)
 	}
-	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
-	if err != nil {
-		sys.Fatal(err, sys.CodeFailedInspect, "authenticate registry")
-	}
-	img, err := remote.Image(ref, auth, http.DefaultTransport)
-	if err != nil {
-		sys.Fatal(err, sys.CodeFailedInspect, "locate image")
-	}
-	digest, err := img.Digest()
+	image, err := store.Image()
 	if err != nil {
 		if rErr, ok := err.(*remote.Error); ok && len(rErr.Errors) > 0 {
 			switch rErr.Errors[0].Code {
 			case remote.UnauthorizedErrorCode, remote.ManifestUnknownErrorCode:
-				fmt.Fprintf(os.Stderr, "Not found.")
-				sys.Exit(sys.CodeNotFound)
+				return sys.FailCode(sys.CodeNotFound, "find", refName)
 			}
 		}
-		sys.Fatal(err, sys.CodeFailedInspect, "determine digest")
+		return sys.FailErr(err, "get", refName)
 	}
-	config, err := img.ConfigFile()
+	config, err := image.ConfigFile()
 	if err != nil {
-		sys.Fatal(err, sys.CodeFailedInspect, "retrieve manifest")
+		return sys.FailErr(err, "get config")
 	}
-	if err := ioutil.WriteFile(metadataPath, []byte(config.Config.Labels[build.Label]), 0666); err != nil {
-		sys.Fatal(err, sys.CodeFailed, "write metadata to", metadataPath)
-	}
-	fmt.Println(ref.Context().Name() + "@" + digest.String())
+	fmt.Println(config.Config.Labels[build.Label])
+	return nil
 }

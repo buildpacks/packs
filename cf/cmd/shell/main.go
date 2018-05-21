@@ -11,22 +11,25 @@ import (
 const appDir = "/home/vcap/app"
 
 func main() {
-	defer sys.Cleanup()
+	sys.Exit(shell())
+}
 
+func shell() error {
 	if err := os.Chdir(appDir); err != nil {
-		sys.Fatal(err, sys.CodeFailed, "change directory")
+		return sys.FailErr(err, "change directory")
 	}
 	app, err := cfapp.New()
 	if err != nil {
-		sys.Fatal(err, sys.CodeInvalidEnv, "build app env")
+		return sys.FailErrCode(err, sys.CodeInvalidEnv, "build app env")
 	}
 	for k, v := range app.Launch() {
 		if err := os.Setenv(k, v); err != nil {
-			sys.Fatal(err, sys.CodeInvalidEnv, "set app env")
+			return sys.FailErrCode(err, sys.CodeInvalidEnv, "set app env")
 		}
 	}
 	args := append([]string{"/lifecycle/shell", appDir}, os.Args[1:]...)
 	if err := syscall.Exec("/lifecycle/shell", args, os.Environ()); err != nil {
-		sys.Fatal(err, sys.CodeFailedLaunch, "run")
+		return sys.FailErrCode(err, sys.CodeFailedLaunch, "run")
 	}
+	return nil
 }
