@@ -16,11 +16,6 @@ RUN \
     rm /tmp/buildpack.zip; \
   done
 
-RUN mkdir -p /packs
-COPY builder /packs/
-
-WORKDIR /workspace
-
 ENTRYPOINT [ \
   "/packs/builder", \
   "-buildpacksDir", "/var/lib/buildpacks", \

@@ -8,11 +8,6 @@ RUN curl -fsSL https://github.com/GoogleCloudPlatform/docker-credential-gcr/rele
     tar xz -O docker-credential-gcr > /usr/local/bin/docker-credential-gcr && \
     chmod +x /usr/local/bin/docker-credential-gcr
 
-RUN mkdir -p /packs
-COPY exporter /packs/
-
-WORKDIR /workspace
-
 ENV PACK_STACK_NAME packs/${stack}:run
 ENV PACK_DROPLET_PATH ./droplet.tgz
 ENV PACK_DROPLET_METADATA_PATH ./result.json

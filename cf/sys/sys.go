@@ -65,7 +65,7 @@ func Run(name string, arg ...string) (string, error) {
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%s failed: %s\n%s", name, err, stderr.String())
+		return "", FailErr(err, "run:", name, strings.Join(arg, " "), "\n", stderr.String())
 	}
 	return strings.TrimSpace(stdout.String()), nil
 }

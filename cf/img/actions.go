@@ -5,6 +5,9 @@ import (
 	"github.com/google/go-containerregistry/v1"
 	"github.com/google/go-containerregistry/v1/mutate"
 	"github.com/google/go-containerregistry/v1/tarball"
+	"strings"
+	"os/exec"
+	"github.com/sclevine/packs/cf/sys"
 )
 
 func Append(s Store, tar string) (v1.Image, []name.Repository, error) {
@@ -68,4 +71,23 @@ func Label(image v1.Image, k, v string) (v1.Image, error) {
 	}
 	config.Labels[k] = v
 	return mutate.Config(image, config)
+}
+
+func RunInDomain(ref, domain, cmd string, args ...string) (bool, error) {
+	r, err := name.ParseReference(ref, name.WeakValidation)
+	if err != nil {
+		return false, err
+	}
+	registry := strings.ToLower(r.Context().RegistryStr())
+	domain = strings.ToLower(domain)
+	if registry != domain && !strings.HasSuffix(registry, "."+domain) {
+		return false, nil
+	}
+	if _, err := exec.LookPath(cmd); err != nil {
+		return false, nil
+	}
+	if _, err := sys.Run(cmd, args...); err != nil {
+		return false, err
+	}
+	return true, nil
 }

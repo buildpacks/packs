@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+
 	"github.com/google/go-containerregistry/v1/remote"
 
 	"github.com/sclevine/packs/cf/build"
@@ -29,6 +30,10 @@ func main() {
 }
 
 func inspect() error {
+	if _, err := img.RunInDomain(refName, "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
+		return sys.FailErr(err, "setup GCR credentials")
+	}
+
 	store, err := img.NewRegistry(refName)
 	if err != nil {
 		return sys.FailErr(err, "access", refName)

@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1"
@@ -43,6 +42,12 @@ func main() {
 }
 
 func export() error {
+	if ran, err := img.RunInDomain(repoName, "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
+		return sys.FailErr(err, "setup GCR credentials")
+	} else if ran {
+		fmt.Println("Configured GCR credentials.")
+	}
+
 	newRepoStore := img.NewRegistry
 	if useDaemon {
 		newRepoStore = img.NewDaemon
@@ -50,10 +55,6 @@ func export() error {
 	repoStore, err := newRepoStore(repoName)
 	if err != nil {
 		return sys.FailErr(err, "access", repoName)
-	}
-
-	if err := configureCreds(repoStore.Ref(), "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
-		return sys.FailErr(err, "setup GCR credentials")
 	}
 
 	stackStore, err := img.NewRegistry(stackName)
@@ -152,16 +153,4 @@ func dropletToLayer(dropletPath string) (layer string, err error) {
 		return "", sys.FailErr(err, "tar", tmpDir, "to", layer)
 	}
 	return layer, nil
-}
-
-func configureCreds(ref name.Reference, domain, command string, args ...string) error {
-	registry := strings.ToLower(ref.Context().RegistryStr())
-	domain = strings.ToLower(domain)
-	if registry == domain || strings.HasSuffix(registry, "."+domain) {
-		if _, err := sys.Run(command, args...); err != nil {
-			return sys.FailErr(err, "configure", domain, "credentials")
-		}
-		fmt.Printf("Configured credentials for: %s\n", domain)
-	}
-	return nil
 }

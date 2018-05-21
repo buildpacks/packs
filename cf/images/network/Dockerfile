@@ -11,5 +11,3 @@ RUN \
   rm -rf /var/lib/apt/lists/*
 
 USER vcap
-
-WORKDIR /workspace
