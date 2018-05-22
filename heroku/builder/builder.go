@@ -21,7 +21,7 @@ const (
 
 func main() {
 	var buildpacksDir string
-	var buildpackOrderRaw string
+	var buildpackOrder string
 	var skipDetect bool
 	var appDir string
 	var cacheDir string
@@ -29,7 +29,7 @@ func main() {
 	var outputSlug string
 	var outputCache string
 	flag.StringVar(&buildpacksDir, "buildpacksDir", "/var/lib/buildpacks", "directory containing buildpacks")
-	flag.StringVar(&buildpackOrderRaw, "buildpackOrder", "heroku/ruby", "list of buildpacks to run")
+	flag.StringVar(&buildpackOrder, "buildpackOrder", "heroku/ruby", "list of buildpacks to run")
 	flag.BoolVar(&skipDetect, "skipDetect", false, "run detection")
 	flag.StringVar(&appDir, "appDir", "/tmp/app", "directory containing the app")
 	flag.StringVar(&cacheDir, "cacheDir", "/tmp/cache", "directory containing containing the cache")
@@ -39,14 +39,14 @@ func main() {
 
 	flag.Parse()
 
+	os.MkdirAll(appDir, os.ModeTemporary)
 	os.MkdirAll(cacheDir, os.ModeTemporary)
 	os.MkdirAll(envDir, os.ModeTemporary)
 	os.MkdirAll(buildpacksDir, os.ModePerm)
-	os.MkdirAll(appDir, os.ModePerm)
 	os.MkdirAll(filepath.Dir(outputSlug), os.ModePerm)
 	os.MkdirAll(filepath.Dir(outputCache), os.ModePerm)
 
-	buildpacks := strings.Split(buildpackOrderRaw, ",")
+	buildpacks := strings.Split(buildpackOrder, ",")
 	if strings.Join(buildpacks, "") == "" && !skipDetect {
 		buildpack, err := detect(appDir, buildpacksDir)
 		if err != nil || buildpack == "" {
@@ -134,12 +134,12 @@ func makeSlug(outputSlug, appDir string) error {
 	return err
 }
 
-func createBuildpackOptions(buildpackOrder []string) []string {
-	buildpacks := make([]string, len(buildpackOrder))
-	for i, buildpack := range buildpackOrder {
-		buildpacks[i] = fmt.Sprintf("--buildpack=%s", buildpack)
+func createBuildpackOptions(buildpacks []string) []string {
+	buildpacksAsOpts := make([]string, len(buildpacks))
+	for i, buildpack := range buildpacks {
+		buildpacksAsOpts[i] = fmt.Sprintf("--buildpack=%s", buildpack)
 	}
-	return buildpacks
+	return buildpacksAsOpts
 }
 
 func compress(src, tgz string) error {
