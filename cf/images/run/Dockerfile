@@ -10,6 +10,4 @@ HEALTHCHECK --interval=30s --timeout=1s --start-period=60s --retries=1 \
 
 USER vcap
 
-ENV PACK_DROPLET_PATH ./droplet.tgz
-
 ENTRYPOINT ["/packs/launcher"]

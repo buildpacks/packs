@@ -36,12 +36,10 @@ func main() {
 }
 
 func launch() error {
-	if err := supplyApp(dropletPath, homeDir); err != nil {
-		return sys.FailErr(err, "supply app")
-	}
-
-	if err := os.Chdir(appDir); err != nil {
-		return sys.FailErr(err, "change directory to", appDir)
+	if dropletPath != "" {
+		if _, err := sys.Run("tar", "-C", homeDir, "-xzf", dropletPath); err != nil {
+			return sys.FailErr(err, "supply app")
+		}
 	}
 
 	var (
@@ -60,6 +58,9 @@ func launch() error {
 		return sys.FailErr(err, "determine start command")
 	}
 
+	if err := os.Chdir(appDir); err != nil {
+		return sys.FailErr(err, "change directory to", appDir)
+	}
 	app, err := cfapp.New()
 	if err != nil {
 		return sys.FailErrCode(err, sys.CodeInvalidEnv, "build app env")
@@ -73,18 +74,6 @@ func launch() error {
 	args := []string{"/lifecycle/launcher", appDir, command, ""}
 	if err := syscall.Exec("/lifecycle/launcher", args, os.Environ()); err != nil {
 		return sys.FailErrCode(err, sys.CodeFailedLaunch, "launch")
-	}
-	return nil
-}
-
-func supplyApp(tgz, dst string) error {
-	if _, err := os.Stat(tgz); os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
-		return sys.FailErr(err, "stat", tgz)
-	}
-	if _, err := sys.Run("tar", "-C", dst, "-xzf", tgz); err != nil {
-		return sys.FailErr(err, "untar", tgz, "to", dst)
 	}
 	return nil
 }

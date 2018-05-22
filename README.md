@@ -16,11 +16,10 @@ docker run --rm -v "$(pwd)/app:/workspace" -v "$(pwd)/out:/out" packs/cf:build
 
 Run:
 ```bash
-docker run --rm -P -v "$(pwd)/out:/workspace" packs/cf:run
+docker run --rm -P -v "$(pwd)/out:/workspace" packs/cf:run -droplet droplet.tgz
 ```
 
 Export:
 ```bash
-docker run --rm -v "$(pwd)/out:/workspace" packs/cf:export my-image
+docker run --rm -v "$(pwd)/out:/workspace" -v "$HOME/.docker/config.json:/root/.docker/config.json" packs/cf:export my-image
 ```
-*Note: requires registry credentials*
