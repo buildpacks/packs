@@ -5,24 +5,21 @@ set -eo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")/..
 
 stack=$1
+
 if [[ ! -f ${stack}.json ]]; then
-  >&2 echo "No such stack: ${stack}"
+  >&2 echo "No such stack: ${stack:-(not specified)}"
   exit 1
 fi
 
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/base/builder github.com/sclevine/packs/cf/cmd/builder
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/base/exporter github.com/sclevine/packs/cf/cmd/exporter
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/base/inspector github.com/sclevine/packs/cf/cmd/inspector
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/base/launcher github.com/sclevine/packs/cf/cmd/launcher
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/base/shell github.com/sclevine/packs/cf/cmd/shell
-
 docker pull "cloudfoundry/${stack}"
 
-docker build --build-arg "stack=${stack}" -t "packs/${stack}:latest" images/base
+build() { docker build --build-arg "stack=${stack}" "$@"; }
 
-docker build --build-arg "stack=${stack}" --build-arg buildpacks="$(jq -cM . "${stack}.json")" -t "packs/${stack}:build" images/build
-docker build --build-arg "stack=${stack}" -t "packs/${stack}:run" images/run
-docker build --build-arg "stack=${stack}" -t "packs/${stack}:export" images/export
-docker build --build-arg "stack=${stack}" -t "packs/${stack}:network" images/network
+build -t "packs/${stack}:latest" -f images/Dockerfile.base ..
 
-docker build --build-arg "stack=${stack}" -t "packs/${stack}-test" images/test
+build -t "packs/${stack}:build" --build-arg buildpacks="$(jq -cM . "${stack}.json")" images/build
+build -t "packs/${stack}:run" images/run
+build -t "packs/${stack}:export" images/export
+build -t "packs/${stack}:network" images/network
+
+build -t "packs/${stack}-test" images/test

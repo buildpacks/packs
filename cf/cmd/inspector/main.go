@@ -30,8 +30,10 @@ func main() {
 }
 
 func inspect() error {
-	if _, err := img.RunInDomain(refName, "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
-		return sys.FailErr(err, "setup GCR credentials")
+	if helper, err := img.SetupCredHelper(refName); err != nil {
+		return sys.FailErr(err, "setup credential helper")
+	} else if helper != "" {
+		fmt.Printf("Using credential helper: %s\n", helper)
 	}
 
 	store, err := img.NewRegistry(refName)

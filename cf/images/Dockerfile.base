@@ -1,9 +1,17 @@
 ARG stack
+ARG go_version=1.9.6
+FROM golang:$go_version as packs
+
+ARG repo=github.com/sclevine/packs
+
+COPY . /go/src/github.com/sclevine/packs
+ENV CGO_ENABLED=0
+RUN go install -a -installsuffix static "${repo}/cf/cmd/..."
 
 FROM cloudfoundry/${stack}
 
-ARG go_version=1.9.4
-ARG diego_version=1.32.0
+ARG go_version
+ARG diego_version=2.7.0
 
 RUN \
   curl -L "https://storage.googleapis.com/golang/go${go_version}.linux-amd64.tar.gz" | tar -C /usr/local -xz && \
@@ -27,6 +35,6 @@ RUN \
   CGO_ENABLED=0 go build -a -installsuffix static -o /lifecycle/shell code.cloudfoundry.org/buildpackapplifecycle/shell/shell && \
   rm -rf /tmp/diego-release /usr/local/go
 
-COPY builder exporter inspector launcher shell /packs/
+COPY --from=packs /go/bin /packs
 
 WORKDIR /workspace

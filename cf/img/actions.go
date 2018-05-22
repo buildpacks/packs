@@ -1,13 +1,15 @@
 package img
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"regexp"
+
 	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1"
 	"github.com/google/go-containerregistry/v1/mutate"
 	"github.com/google/go-containerregistry/v1/tarball"
-	"strings"
-	"os/exec"
-	"github.com/sclevine/packs/cf/sys"
 )
 
 func Append(s Store, tar string) (v1.Image, []name.Repository, error) {
@@ -73,21 +75,47 @@ func Label(image v1.Image, k, v string) (v1.Image, error) {
 	return mutate.Config(image, config)
 }
 
-func RunInDomain(ref, domain, cmd string, args ...string) (bool, error) {
+type dockerConfig struct {
+	CredHelpers map[string]string `json:"credHelpers"`
+}
+
+func SetupCredHelper(ref string) (string, error) {
+	for _, ch := range []struct {
+		domain string
+		helper string
+	}{
+		{"([.]|^)gcr[.]io$", "gcr"},
+		{"[.]amazonaws[.]", "ecr-login"},
+		{"([.]|^)azurecr[.]io$", "acr"},
+	} {
+		match, err := addCredHelper(ref, ch.domain, ch.helper)
+		if match || err != nil {
+			return ch.helper, err
+		}
+	}
+	return "", nil
+}
+
+func addCredHelper(ref, domain, helper string) (bool, error) {
+	configPath := filepath.Join(os.Getenv("HOME"), ".docker", "config.json")
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+		return false, err
+	}
 	r, err := name.ParseReference(ref, name.WeakValidation)
 	if err != nil {
 		return false, err
 	}
-	registry := strings.ToLower(r.Context().RegistryStr())
-	domain = strings.ToLower(domain)
-	if registry != domain && !strings.HasSuffix(registry, "."+domain) {
-		return false, nil
-	}
-	if _, err := exec.LookPath(cmd); err != nil {
-		return false, nil
-	}
-	if _, err := sys.Run(cmd, args...); err != nil {
+	match, err := regexp.MatchString("(?i)"+domain, r.Context().RegistryStr())
+	if !match || err != nil {
 		return false, err
 	}
-	return true, nil
+	f, err := os.Create(configPath)
+	if err != nil {
+		return false, err
+	}
+	return true, json.NewEncoder(f).Encode(dockerConfig{
+		CredHelpers: map[string]string{
+			r.Context().RegistryStr(): helper,
+		},
+	})
 }

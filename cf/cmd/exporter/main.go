@@ -42,10 +42,10 @@ func main() {
 }
 
 func export() error {
-	if ran, err := img.RunInDomain(repoName, "gcr.io", "docker-credential-gcr", "configure-docker"); err != nil {
-		return sys.FailErr(err, "setup GCR credentials")
-	} else if ran {
-		fmt.Println("Configured GCR credentials.")
+	if helper, err := img.SetupCredHelper(repoName); err != nil {
+		return sys.FailErr(err, "setup credential helper")
+	} else if helper != "" {
+		fmt.Printf("Using credential helper: %s\n", helper)
 	}
 
 	newRepoStore := img.NewRegistry
