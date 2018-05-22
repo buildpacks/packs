@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -18,6 +16,7 @@ const (
 	CodeInvalidArgs
 
 	Cytokine = "/packs/cytokine"
+	MetadataFile = "release.yml"
 )
 
 func main() {
@@ -42,28 +41,29 @@ func main() {
 
 	os.MkdirAll(cacheDir, os.ModeTemporary)
 	os.MkdirAll(envDir, os.ModeTemporary)
-	os.MkdirAll("/out", os.ModePerm)
-	os.MkdirAll("/cache", os.ModePerm)
+	os.MkdirAll(buildpacksDir, os.ModePerm)
+	os.MkdirAll(appDir, os.ModePerm)
+	os.MkdirAll(filepath.Dir(outputSlug), os.ModePerm)
+	os.MkdirAll(filepath.Dir(outputCache), os.ModePerm)
 
-	buildpackOrder := strings.Split(buildpackOrderRaw, ",")
-
-	if strings.Join(buildpackOrder, "") == "" && !skipDetect {
+	buildpacks := strings.Split(buildpackOrderRaw, ",")
+	if strings.Join(buildpacks, "") == "" && !skipDetect {
 		buildpack, err := detect(appDir, buildpacksDir)
 		if err != nil || buildpack == "" {
 			fatal(err, CodeFailedSetup, "detect")
 		}
 
-		buildpackOrder = []string{buildpack}
+		buildpacks = []string{buildpack}
 	}
 
-	buildpackOptions := createBuildpackOptions(buildpackOrder)
+	buildpackOptions := createBuildpackOptions(buildpacks)
 
 	err := compile(appDir, cacheDir, envDir, buildpacksDir, buildpackOptions)
 	if err != nil {
 		fatal(err, CodeFailedBuild, "compile")
 	}
 
-	err = release(appDir, buildpacksDir, filepath.Join(appDir, "release.yml"), buildpackOptions)
+	err = release(appDir, buildpacksDir, filepath.Join(appDir, MetadataFile), buildpackOptions)
 	if err != nil {
 		fatal(err, CodeFailedBuild, "release")
 	}
