@@ -56,9 +56,9 @@ func Rebase(orig Store, newBase Store, oldBaseFinder StoreFinder) (v1.Image, []n
 		return nil, nil, err
 	}
 	return image, []name.Repository{
-		orig.Ref().Context(),
 		newBase.Ref().Context(),
 		oldBase.Ref().Context(),
+		orig.Ref().Context(),
 	}, nil
 }
 
