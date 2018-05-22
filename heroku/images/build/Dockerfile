@@ -21,15 +21,15 @@ RUN /packs/cytokine get-default-buildpacks \
   --language=nodejs \
   /var/lib/buildpacks
 
-COPY builder.sh /packs/
+#COPY builder.sh /packs/
+COPY builder /packs/
 
 ENTRYPOINT [ \
-  "/bin/bash", \
-  "/packs/builder.sh", \
-  "/var/lib/buildpacks", \
-  "/tmp/app", \
-  "/tmp/cache", \
-  "/tmp/env", \
-  "/out/slug.tgz", \
-  "/cache/cache.tgz" \
+  "/packs/builder", \
+  "-buildpacksDir", "/var/lib/buildpacks", \
+  "-appDir", "/tmp/app", \
+  "-cacheDir", "/tmp/cache", \
+  "-envDir", "/tmp/env", \
+  "-outputSlug", "/out/slug.tgz", \
+  "-outputCache", "/cache/cache.tgz" \
 ]

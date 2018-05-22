@@ -11,7 +11,6 @@ ENV_DIR=${4}
 SLUG_FILE=${5}
 CACHE_FILE=${6}
 
-
 detect="$(/packs/cytokine detect-buildpack --verbose ${APP_DIR} ${BUILDPACKS_DIR} 2>&1)"
 
 buildpack="$(echo "${detect}" | grep -e '"https://.*"' -oh | sed -e 's/"//g')"
