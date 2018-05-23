@@ -7,7 +7,7 @@ go:
 go_import_path: github.com/sclevine/packs
 install:
 - set -e
-- /cf/bin/build cflinuxfs2
+- ./cf/bin/build cflinuxfs2
 script:
 - test -z "$(bin/format | tee >(cat >&2))"
-- /cf/bin/test cflinuxfs2
+- ./cf/bin/test cflinuxfs2
