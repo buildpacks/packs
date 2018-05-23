@@ -9,4 +9,5 @@ install:
 - set -e
 - /cf/bin/build cflinuxfs2
 script:
+- test -z "$(bin/format | tee >(cat >&2))"
 - /cf/bin/test cflinuxfs2

@@ -85,7 +85,7 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 			env := app.Stage()
 
 			if mem := env["MEMORY_LIMIT"]; mem != "30m" {
-				t.Fatalf("Incorrect memory: %d", mem)
+				t.Fatalf("Incorrect memory: %s", mem)
 			}
 
 			vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])
@@ -217,7 +217,7 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 			env := app.Launch()
 
 			if mem := env["MEMORY_LIMIT"]; mem != "30m" {
-				t.Fatalf("Incorrect memory: %d", mem)
+				t.Fatalf("Incorrect memory: %s", mem)
 			}
 
 			vcapApp, err := vcapAppExpect(env["VCAP_APPLICATION"])

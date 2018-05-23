@@ -12,8 +12,8 @@ import (
 	"github.com/google/go-containerregistry/v1"
 
 	"github.com/sclevine/packs"
-	"github.com/sclevine/packs/img"
 	"github.com/sclevine/packs/cf"
+	"github.com/sclevine/packs/img"
 )
 
 var (

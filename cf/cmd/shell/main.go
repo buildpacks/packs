@@ -4,8 +4,8 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/sclevine/packs/cf"
 	"github.com/sclevine/packs"
+	"github.com/sclevine/packs/cf"
 )
 
 const appDir = "/home/vcap/app"
