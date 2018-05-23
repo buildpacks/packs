@@ -10,7 +10,7 @@ import (
 
 const (
 	CodeFailed      = 1
-	CodeInvalidArgs = iota + 3
+	CodeInvalidArgs = iota + 2
 	CodeInvalidEnv
 	CodeNotFound
 	CodeFailedBuild
