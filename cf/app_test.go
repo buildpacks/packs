@@ -1,4 +1,4 @@
-package app_test
+package cf_test
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/sclevine/spec"
 
-	pkgapp "github.com/sclevine/packs/cf/app"
+	"github.com/sclevine/packs/cf"
 )
 
 var memory = flag.Uint64("memory", 1024, "expected memory usage in mb")
@@ -29,13 +29,13 @@ func TestApp(t *testing.T) {
 
 func testStage(t *testing.T, when spec.G, it spec.S) {
 	var (
-		app *pkgapp.App
+		app *cf.App
 		set func(k, v string)
 	)
 
 	it.Before(func() {
 		var err error
-		if app, err = pkgapp.New(); err != nil {
+		if app, err = cf.New(); err != nil {
 			t.Fatalf("Failed to create app: %s\n", err)
 		}
 		app.Env, set = env()
@@ -151,13 +151,13 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 
 func testLaunch(t *testing.T, when spec.G, it spec.S) {
 	var (
-		app *pkgapp.App
+		app *cf.App
 		set func(k, v string)
 	)
 
 	it.Before(func() {
 		var err error
-		if app, err = pkgapp.New(); err != nil {
+		if app, err = cf.New(); err != nil {
 			t.Fatalf("Failed to create app: %s\n", err)
 		}
 		app.Env, set = env()
@@ -326,20 +326,20 @@ func hostIPCmp(t *testing.T, ip, suffix string) {
 	}
 }
 
-func vcapAppExpect(vcapAppJSON string) (pkgapp.VCAPApplication, error) {
-	var vcapApp pkgapp.VCAPApplication
+func vcapAppExpect(vcapAppJSON string) (cf.VCAPApplication, error) {
+	var vcapApp cf.VCAPApplication
 	if err := json.Unmarshal([]byte(vcapAppJSON), &vcapApp); err != nil {
-		return pkgapp.VCAPApplication{}, err
+		return cf.VCAPApplication{}, err
 	}
 	ulimit, err := exec.Command("bash", "-c", "ulimit -n").Output()
 	if err != nil {
-		return pkgapp.VCAPApplication{}, err
+		return cf.VCAPApplication{}, err
 	}
 	fds, err := strconv.ParseUint(strings.TrimSpace(string(ulimit)), 10, 64)
 	if err != nil {
-		return pkgapp.VCAPApplication{}, err
+		return cf.VCAPApplication{}, err
 	}
-	return pkgapp.VCAPApplication{
+	return cf.VCAPApplication{
 		ApplicationID:      vcapApp.ApplicationID,
 		ApplicationName:    "app",
 		ApplicationURIs:    []string{"app.local"},
@@ -355,11 +355,11 @@ func vcapAppExpect(vcapAppJSON string) (pkgapp.VCAPApplication, error) {
 
 func vcapAppCmp(t *testing.T, va1, va2 string) {
 	t.Helper()
-	var vcapApp1 pkgapp.VCAPApplication
+	var vcapApp1 cf.VCAPApplication
 	if err := json.Unmarshal([]byte(va1), &vcapApp1); err != nil {
 		t.Fatalf("Error: %s\n", err)
 	}
-	var vcapApp2 pkgapp.VCAPApplication
+	var vcapApp2 cf.VCAPApplication
 	if err := json.Unmarshal([]byte(va2), &vcapApp2); err != nil {
 		t.Fatalf("Error: %s\n", err)
 	}

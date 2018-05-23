@@ -11,10 +11,9 @@ import (
 	"github.com/google/go-containerregistry/name"
 	"github.com/google/go-containerregistry/v1"
 
-	"code.cloudfoundry.org/buildpackapplifecycle"
-	"github.com/sclevine/packs/cf/build"
-	"github.com/sclevine/packs/cf/img"
-	"github.com/sclevine/packs/cf/sys"
+	"github.com/sclevine/packs"
+	"github.com/sclevine/packs/img"
+	"github.com/sclevine/packs/cf"
 )
 
 var (
@@ -26,24 +25,24 @@ var (
 )
 
 func init() {
-	flag.StringVar(&dropletPath, "droplet", os.Getenv("PACK_DROPLET_PATH"), "file containing compressed droplet")
-	flag.StringVar(&metadataPath, "metadata", os.Getenv("PACK_DROPLET_METADATA_PATH"), "file containing droplet metadata")
-	flag.StringVar(&stackName, "stack", os.Getenv("PACK_STACK_NAME"), "base image for stack")
-	flag.BoolVar(&useDaemon, "daemon", sys.BoolEnv("PACK_USE_DAEMON"), "export to docker daemon")
+	packs.InputDropletPath(&dropletPath)
+	packs.InputMetadataPath(&metadataPath)
+	packs.InputStackName(&stackName)
+	packs.InputUseDaemon(&useDaemon)
 }
 
 func main() {
 	flag.Parse()
 	repoName = flag.Arg(0)
 	if flag.NArg() != 1 || repoName == "" || stackName == "" || (metadataPath != "" && dropletPath == "") {
-		sys.Exit(sys.FailCode(sys.CodeInvalidArgs, "parse arguments"))
+		packs.Exit(packs.FailCode(packs.CodeInvalidArgs, "parse arguments"))
 	}
-	sys.Exit(export())
+	packs.Exit(export())
 }
 
 func export() error {
 	if helper, err := img.SetupCredHelper(repoName); err != nil {
-		return sys.FailErr(err, "setup credential helper")
+		return packs.FailErr(err, "setup credential helper")
 	} else if helper != "" {
 		fmt.Printf("Using credential helper: %s\n", helper)
 	}
@@ -54,85 +53,85 @@ func export() error {
 	}
 	repoStore, err := newRepoStore(repoName)
 	if err != nil {
-		return sys.FailErr(err, "access", repoName)
+		return packs.FailErr(err, "access", repoName)
 	}
 
 	stackStore, err := img.NewRegistry(stackName)
 	if err != nil {
-		return sys.FailErr(err, "access", stackName)
+		return packs.FailErr(err, "access", stackName)
 	}
 
 	var (
 		repoImage v1.Image
 		sources   []name.Repository
-		metadata  build.Metadata
+		metadata  packs.BuildMetadata
 	)
 	if dropletPath != "" {
 		if metadataPath != "" {
 			var err error
 			metadata.App, metadata.Buildpacks, err = readDropletMetadata(metadataPath)
 			if err != nil {
-				return sys.FailErr(err, "get droplet metadata")
+				return packs.FailErr(err, "get droplet metadata")
 			}
 		}
 		layer, err := dropletToLayer(dropletPath)
 		if err != nil {
-			return sys.FailErr(err, "transform", dropletPath, "into layer")
+			return packs.FailErr(err, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
 		repoImage, sources, err = img.Append(stackStore, layer)
 		if err != nil {
-			return sys.FailErr(err, "append droplet to", stackName)
+			return packs.FailErr(err, "append droplet to", stackName)
 		}
 	} else {
 		repoImage, sources, err = img.Rebase(repoStore, stackStore, func(labels map[string]string) (img.Store, error) {
-			if err := json.Unmarshal([]byte(labels[build.BuildLabel]), &metadata); err != nil {
-				return nil, sys.FailErr(err, "get build metadata for", repoName)
+			if err := json.Unmarshal([]byte(labels[packs.BuildLabel]), &metadata); err != nil {
+				return nil, packs.FailErr(err, "get build metadata for", repoName)
 			}
 			digestName := metadata.Stack.Name + "@" + metadata.Stack.SHA
 			return img.NewRegistry(digestName)
 		})
 		if err != nil {
-			return sys.FailErr(err, "rebase", repoName, "on", stackName)
+			return packs.FailErr(err, "rebase", repoName, "on", stackName)
 		}
 	}
 	stackDigest, err := stackStore.Digest()
 	if err != nil {
-		return sys.FailErr(err, "get digest for", stackName)
+		return packs.FailErr(err, "get digest for", stackName)
 	}
 	metadata.Stack.Name = stackStore.Ref().Context().String()
 	metadata.Stack.SHA = stackDigest.String()
 	buildJSON, err := json.Marshal(metadata)
 	if err != nil {
-		return sys.FailErr(err, "get encode metadata for", repoName)
+		return packs.FailErr(err, "get encode metadata for", repoName)
 	}
-	repoImage, err = img.Label(repoImage, build.BuildLabel, string(buildJSON))
+	repoImage, err = img.Label(repoImage, packs.BuildLabel, string(buildJSON))
 	if err != nil {
-		return sys.FailErr(err, "label", repoName)
+		return packs.FailErr(err, "label", repoName)
 	}
 	if err := repoStore.Write(repoImage, sources...); err != nil {
-		return sys.FailErrCode(err, sys.CodeFailedUpdate, "write", repoName)
+		return packs.FailErrCode(err, packs.CodeFailedUpdate, "write", repoName)
 	}
 	return nil
 }
 
-func readDropletMetadata(path string) (build.AppMetadata, []buildpackapplifecycle.BuildpackMetadata, error) {
+func readDropletMetadata(path string) (packs.AppMetadata, []packs.BuildpackMetadata, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return build.AppMetadata{}, nil, sys.FailErr(err, "failed to open", path)
+		return packs.AppMetadata{}, nil, packs.FailErr(err, "failed to open", path)
 	}
 	defer f.Close()
-	metadata := build.DropletMetadata{}
+	var metadata cf.DropletMetadata
 	if err := json.NewDecoder(f).Decode(&metadata); err != nil {
-		return build.AppMetadata{}, nil, sys.FailErr(err, "failed to decode", path)
+		return packs.AppMetadata{}, nil, packs.FailErr(err, "failed to decode", path)
 	}
-	return metadata.PackMetadata.App, metadata.Buildpacks, nil
+	return metadata.PackMetadata.App, metadata.Buildpacks(), nil
 }
 
 func dropletToLayer(dropletPath string) (layer string, err error) {
 	tmpDir, err := ioutil.TempDir("", "pack.export.layer")
 	if err != nil {
-		return "", sys.FailErr(err, "create temp directory")
+		return "", packs.FailErr(err, "create temp directory")
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -140,17 +139,17 @@ func dropletToLayer(dropletPath string) (layer string, err error) {
 	dropletRoot := filepath.Join(tmpDir, "home", "vcap")
 
 	if err := os.MkdirAll(dropletRoot, 0777); err != nil {
-		return "", sys.FailErr(err, "setup droplet directory")
+		return "", packs.FailErr(err, "setup droplet directory")
 	}
-	if _, err := sys.Run("tar", "-C", dropletRoot, "-xzf", dropletPath); err != nil {
-		return "", sys.FailErr(err, "untar", dropletPath, "to", dropletRoot)
+	if _, err := packs.Run("tar", "-C", dropletRoot, "-xzf", dropletPath); err != nil {
+		return "", packs.FailErr(err, "untar", dropletPath, "to", dropletRoot)
 	}
-	if _, err := sys.Run("chown", "-R", "vcap:vcap", dropletRoot); err != nil {
-		return "", sys.FailErr(err, "recursively chown", dropletRoot, "to", "vcap:vcap")
+	if _, err := packs.Run("chown", "-R", "vcap:vcap", dropletRoot); err != nil {
+		return "", packs.FailErr(err, "recursively chown", dropletRoot, "to", "vcap:vcap")
 	}
-	if _, err := sys.Run("tar", "-C", tmpDir, "-czf", layer, "home"); err != nil {
+	if _, err := packs.Run("tar", "-C", tmpDir, "-czf", layer, "home"); err != nil {
 		defer os.Remove(layer)
-		return "", sys.FailErr(err, "tar", tmpDir, "to", layer)
+		return "", packs.FailErr(err, "tar", tmpDir, "to", layer)
 	}
 	return layer, nil
 }

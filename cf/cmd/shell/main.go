@@ -4,32 +4,32 @@ import (
 	"os"
 	"syscall"
 
-	cfapp "github.com/sclevine/packs/cf/app"
-	"github.com/sclevine/packs/cf/sys"
+	"github.com/sclevine/packs/cf"
+	"github.com/sclevine/packs"
 )
 
 const appDir = "/home/vcap/app"
 
 func main() {
-	sys.Exit(shell())
+	packs.Exit(shell())
 }
 
 func shell() error {
 	if err := os.Chdir(appDir); err != nil {
-		return sys.FailErr(err, "change directory")
+		return packs.FailErr(err, "change directory")
 	}
-	app, err := cfapp.New()
+	app, err := cf.New()
 	if err != nil {
-		return sys.FailErrCode(err, sys.CodeInvalidEnv, "build app env")
+		return packs.FailErrCode(err, packs.CodeInvalidEnv, "build app env")
 	}
 	for k, v := range app.Launch() {
 		if err := os.Setenv(k, v); err != nil {
-			return sys.FailErrCode(err, sys.CodeInvalidEnv, "set app env")
+			return packs.FailErrCode(err, packs.CodeInvalidEnv, "set app env")
 		}
 	}
 	args := append([]string{"/lifecycle/shell", appDir}, os.Args[1:]...)
 	if err := syscall.Exec("/lifecycle/shell", args, os.Environ()); err != nil {
-		return sys.FailErrCode(err, sys.CodeFailedLaunch, "run")
+		return packs.FailErrCode(err, packs.CodeFailedLaunch, "run")
 	}
 	return nil
 }

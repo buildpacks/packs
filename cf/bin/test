@@ -13,6 +13,6 @@ fi
 repo=github.com/sclevine/packs
 run() { docker run --rm -v "$(pwd)/..:/go/src/${repo}" "$@"; }
 
-run "packs/${stack}-test" "${repo}/cf/app"
-run --memory 100m "packs/${stack}-test" "${repo}/cf/app" -memory 100
+run "packs/${stack}-test" "${repo}/cf"
+run --memory 100m "packs/${stack}-test" "${repo}/cf" -memory 100
 
