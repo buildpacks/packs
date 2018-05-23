@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 
@@ -54,6 +55,21 @@ func inspect() error {
 	if err != nil {
 		return sys.FailErr(err, "get config")
 	}
-	fmt.Println(config.Config.Labels[build.Label])
+	out, err := encode(config.Config.Labels)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(out))
 	return nil
+}
+
+func encode(m map[string]string) ([]byte, error) {
+	out := map[string]json.RawMessage{}
+	for k, v := range m {
+		switch k {
+		case build.BuildLabel, build.BuildpackLabel:
+			out[k] = []byte(v)
+		}
+	}
+	return json.Marshal(out)
 }

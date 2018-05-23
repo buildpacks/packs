@@ -86,7 +86,7 @@ func export() error {
 		}
 	} else {
 		repoImage, sources, err = img.Rebase(repoStore, stackStore, func(labels map[string]string) (img.Store, error) {
-			if err := json.Unmarshal([]byte(labels[build.Label]), &metadata); err != nil {
+			if err := json.Unmarshal([]byte(labels[build.BuildLabel]), &metadata); err != nil {
 				return nil, sys.FailErr(err, "get build metadata for", repoName)
 			}
 			digestName := metadata.Stack.Name + "@" + metadata.Stack.SHA
@@ -106,7 +106,7 @@ func export() error {
 	if err != nil {
 		return sys.FailErr(err, "get encode metadata for", repoName)
 	}
-	repoImage, err = img.Label(repoImage, build.Label, string(buildJSON))
+	repoImage, err = img.Label(repoImage, build.BuildLabel, string(buildJSON))
 	if err != nil {
 		return sys.FailErr(err, "label", repoName)
 	}
