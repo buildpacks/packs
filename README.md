@@ -1,6 +1,11 @@
 # Packs
 
-This repo provides buildpack cloud builders ("packs").
+[![Build Status](https://travis-ci.org/sclevine/packs.svg?branch=master)](https://travis-ci.org/sclevine/packs)
+[![GoDoc](https://godoc.org/github.com/sclevine/packs?status.svg)](https://godoc.org/github.com/sclevine/packs)
+
+This repo contains Packs: buildpack cloud builders for the Cloud Foundry and Heroku buildpacks.
+
+[These cloud builders are available on Docker Hub.](https://hub.docker.com/u/packs/)
 
 ## Quick Start: Cloud Foundry Packs
 
