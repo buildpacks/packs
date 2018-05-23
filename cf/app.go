@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/sclevine/packs"
 )
 
 const (
@@ -111,12 +113,12 @@ func totalMem() (uint64, error) {
 }
 
 func (a *App) config() (name, uri string, limits map[string]uint64) {
-	name = a.envStr("PACK_APP_NAME", a.name)
-	uri = a.envStr("PACK_APP_URI", name+".local")
+	name = a.envStr(packs.EnvAppName, a.name)
+	uri = a.envStr(packs.EnvAppURI, name+".local")
 
-	disk := a.envInt("PACK_APP_DISK", a.disk)
-	fds := a.envInt("PACK_APP_FDS", a.fds)
-	mem := a.envInt("PACK_APP_MEM", a.mem)
+	disk := a.envInt(packs.EnvAppDisk, a.disk)
+	fds := a.envInt(packs.EnvAppFds, a.fds)
+	mem := a.envInt(packs.EnvAppMemory, a.mem)
 	limits = map[string]uint64{"disk": disk, "fds": fds, "mem": mem}
 
 	return name, uri, limits

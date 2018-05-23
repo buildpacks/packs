@@ -12,6 +12,7 @@ import (
 
 	"github.com/sclevine/spec"
 
+	"github.com/sclevine/packs"
 	"github.com/sclevine/packs/cf"
 )
 
@@ -75,11 +76,11 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 
 	when("PACK env variables are set", func() {
 		it("should customize the staging env accordingly", func() {
-			set("PACK_APP_NAME", "some-name")
-			set("PACK_APP_URI", "some-uri")
-			set("PACK_APP_DISK", "10")
-			set("PACK_APP_FDS", "20")
-			set("PACK_APP_MEM", "30")
+			set(packs.EnvAppName, "some-name")
+			set(packs.EnvAppURI, "some-uri")
+			set(packs.EnvAppDisk, "10")
+			set(packs.EnvAppFds, "20")
+			set(packs.EnvAppMemory, "30")
 
 			env := app.Stage()
 
@@ -107,7 +108,7 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 
 	when("buildpack env vars are set", func() {
 		it("should always override other values", func() {
-			set("PACK_APP_MEM", "30")
+			set(packs.EnvAppMemory, "30")
 			set("CF_INSTANCE_IP", "some-ip")
 			set("CF_INSTANCE_PORT", "some-port")
 			set("CF_INSTANCE_PORTS", "some-ports")
@@ -127,7 +128,7 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 
 	when("a custom app name is set", func() {
 		it("should use the name for the uri as well", func() {
-			set("PACK_APP_NAME", "some-name")
+			set(packs.EnvAppName, "some-name")
 
 			env := app.Stage()
 
@@ -207,11 +208,11 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 
 	when("PACK env variables are set", func() {
 		it("should customize the launch env accordingly", func() {
-			set("PACK_APP_NAME", "some-name")
-			set("PACK_APP_URI", "some-uri")
-			set("PACK_APP_DISK", "10")
-			set("PACK_APP_FDS", "20")
-			set("PACK_APP_MEM", "30")
+			set(packs.EnvAppName, "some-name")
+			set(packs.EnvAppURI, "some-uri")
+			set(packs.EnvAppDisk, "10")
+			set(packs.EnvAppFds, "20")
+			set(packs.EnvAppMemory, "30")
 
 			env := app.Launch()
 
@@ -246,7 +247,7 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 
 	when("buildpack env vars are set", func() {
 		it("should always override other values", func() {
-			set("PACK_APP_MEM", "30")
+			set(packs.EnvAppMemory, "30")
 			set("CF_INSTANCE_ADDR", "some-addr")
 			set("CF_INSTANCE_GUID", "some-guid")
 			set("CF_INSTANCE_INDEX", "some-index")
@@ -266,7 +267,7 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 
 	when("a custom app name is set", func() {
 		it("should use the name for the uri as well", func() {
-			set("PACK_APP_NAME", "some-name")
+			set(packs.EnvAppName, "some-name")
 
 			env := app.Launch()
 

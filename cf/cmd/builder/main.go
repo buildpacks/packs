@@ -53,9 +53,9 @@ func main() {
 	buildpackOrder = config.BuildpackOrder()
 	skipDetect = config.SkipDetect()
 
-	appName = os.Getenv("PACK_APP_NAME")
-	appZip = os.Getenv("PACK_APP_ZIP")
-	appDir = os.Getenv("PACK_APP_DIR")
+	appName = os.Getenv(packs.EnvAppName)
+	appZip = os.Getenv(packs.EnvAppZip)
+	appDir = os.Getenv(packs.EnvAppDir)
 
 	if wd, err := os.Getwd(); appDir == "" && err == nil {
 		appDir = wd
@@ -137,7 +137,7 @@ func stage() error {
 	if err := cmd.Run(); err != nil {
 		return packs.FailErrCode(err, packs.CodeFailedBuild, "build")
 	}
-	if err := setKeyJSON(metadataPath, "pack_metadata", packs.PackMetadata{
+	if err := setKeyJSON(metadataPath, "pack_metadata", cf.PackMetadata{
 		App: packs.AppMetadata{
 			Name: appName,
 			SHA:  appVersion,
