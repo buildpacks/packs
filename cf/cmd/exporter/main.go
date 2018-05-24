@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -41,10 +40,8 @@ func main() {
 }
 
 func export() error {
-	if helper, err := img.SetupCredHelper(repoName); err != nil {
+	if err := img.SetupCredHelpers(repoName, stackName); err != nil {
 		return packs.FailErr(err, "setup credential helper")
-	} else if helper != "" {
-		fmt.Printf("Using credential helper: %s\n", helper)
 	}
 
 	newRepoStore := img.NewRegistry

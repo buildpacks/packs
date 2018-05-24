@@ -30,10 +30,8 @@ func main() {
 }
 
 func inspect() error {
-	if helper, err := img.SetupCredHelper(refName); err != nil {
+	if err := img.SetupCredHelpers(refName); err != nil {
 		return packs.FailErr(err, "setup credential helper")
-	} else if helper != "" {
-		fmt.Printf("Using credential helper: %s\n", helper)
 	}
 
 	store, err := img.NewRegistry(refName)

@@ -79,43 +79,45 @@ type dockerConfig struct {
 	CredHelpers map[string]string `json:"credHelpers"`
 }
 
-func SetupCredHelper(ref string) (string, error) {
-	for _, ch := range []struct {
-		domain string
-		helper string
-	}{
-		{"([.]|^)gcr[.]io$", "gcr"},
-		{"[.]amazonaws[.]", "ecr-login"},
-		{"([.]|^)azurecr[.]io$", "acr"},
-	} {
-		match, err := addCredHelper(ref, ch.domain, ch.helper)
-		if match || err != nil {
-			return ch.helper, err
+func SetupCredHelpers(refs ...string) error {
+	dockerPath := filepath.Join(os.Getenv("HOME"), ".docker")
+	configPath := filepath.Join(dockerPath, "config.json")
+	if _, err := os.Stat(configPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	credHelpers := map[string]string{}
+	for _, refStr := range refs {
+		ref, err := name.ParseReference(refStr, name.WeakValidation)
+		if err != nil {
+			return err
+		}
+		registry := ref.Context().RegistryStr()
+		for _, ch := range []struct {
+			domain string
+			helper string
+		}{
+			{"([.]|^)gcr[.]io$", "gcr"},
+			{"[.]amazonaws[.]", "ecr-login"},
+			{"([.]|^)azurecr[.]io$", "acr"},
+		} {
+			match, err := regexp.MatchString("(?i)"+ch.domain, registry)
+			if err != nil || !match {
+				continue
+			}
+			credHelpers[registry] = ch.helper
 		}
 	}
-	return "", nil
-}
-
-func addCredHelper(ref, domain, helper string) (bool, error) {
-	configPath := filepath.Join(os.Getenv("HOME"), ".docker", "config.json")
-	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
-		return false, err
-	}
-	r, err := name.ParseReference(ref, name.WeakValidation)
-	if err != nil {
-		return false, err
-	}
-	match, err := regexp.MatchString("(?i)"+domain, r.Context().RegistryStr())
-	if !match || err != nil {
-		return false, err
+	if err := os.MkdirAll(dockerPath, 0777); err != nil {
+		return err
 	}
 	f, err := os.Create(configPath)
 	if err != nil {
-		return false, err
+		return err
 	}
-	return true, json.NewEncoder(f).Encode(dockerConfig{
-		CredHelpers: map[string]string{
-			r.Context().RegistryStr(): helper,
-		},
+	defer f.Close()
+	return json.NewEncoder(f).Encode(dockerConfig{
+		CredHelpers: credHelpers,
 	})
 }
