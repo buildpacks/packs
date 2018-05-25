@@ -6,29 +6,24 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/sclevine/packs"
 	herokuapp "github.com/sclevine/packs/heroku/app"
-)
-
-const (
-	CodeFailedEnv = iota + 1
-	CodeFailedSetup
-	CodeFailedShell
 )
 
 func main() {
 	err := os.Chdir("/app")
-	check(err, CodeFailedSetup, "change directory")
+	check(err, packs.CodeFailed, "change directory")
 
 	app, err := herokuapp.New()
-	check(err, CodeFailedEnv, "build app env")
+	check(err, packs.CodeInvalidEnv, "build app env")
 	for k, v := range app.Launch() {
 		err := os.Setenv(k, v)
-		check(err, CodeFailedEnv, "set app env")
+		check(err, packs.CodeInvalidEnv, "set app env")
 	}
 
 	args := append([]string{"/lifecycle/shell", "/app"}, os.Args[1:]...)
 	err = syscall.Exec("/lifecycle/shell", args, os.Environ())
-	check(err, CodeFailedShell, "run")
+	check(err, packs.CodeFailedLaunch, "run")
 }
 
 func check(err error, code int, action ...string) {

@@ -11,13 +11,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/sclevine/packs"
 	herokuapp "github.com/sclevine/packs/heroku/app"
-)
-
-const (
-	CodeFailedEnv = iota + 1
-	CodeFailedSetup
-	CodeFailedLaunch
 )
 
 type ErrProcfileNoProcess string
@@ -43,33 +38,33 @@ func main() {
 	chownAll("heroku", "heroku", "/app")
 
 	err := os.Chdir("/app")
-	check(err, CodeFailedSetup, "change directory")
+	check(err, packs.CodeFailed, "change directory")
 
 	if command == "" {
 		command, err = readCommand()
-		check(err, CodeFailedSetup, "please add a Procfile with a web process")
+		check(err, packs.CodeFailed, "please add a Procfile with a web process")
 	}
 
 	app, err := herokuapp.New()
-	check(err, CodeFailedEnv, "build app env")
+	check(err, packs.CodeInvalidEnv, "build app env")
 	for k, v := range app.Launch() {
 		err := os.Setenv(k, v)
-		check(err, CodeFailedEnv, "set app env")
+		check(err, packs.CodeInvalidEnv, "set app env")
 	}
 
 	args := []string{"/lifecycle/launcher", "/app", command, ""}
 	err = syscall.Exec("/lifecycle/launcher", args, os.Environ())
-	check(err, CodeFailedLaunch, "launch")
+	check(err, packs.CodeFailedLaunch, "launch")
 }
 
 func supplyApp(tgz, dst string) {
 	if _, err := os.Stat(tgz); os.IsNotExist(err) {
 		return
 	} else {
-		check(err, CodeFailedSetup, "stat", tgz)
+		check(err, packs.CodeFailed, "stat", tgz)
 	}
 	err := exec.Command("tar", "-C", dst, "-xzf", tgz).Run()
-	check(err, CodeFailedSetup, "untar", tgz, "to", dst)
+	check(err, packs.CodeFailed, "untar", tgz, "to", dst)
 }
 
 func readCommand() (string, error) {
@@ -85,7 +80,7 @@ func parseProcfile(path string) (string, error) {
 	if _, err := os.Stat(path); err == nil {
 		buf, err := ioutil.ReadFile(path)
 		procfile := string(buf)
-		check(err, CodeFailedSetup, "parse Procfile")
+		check(err, packs.CodeFailed, "parse Procfile")
 
 		processes := make(map[string]string)
 
@@ -106,7 +101,7 @@ func parseProcfile(path string) (string, error) {
 
 func parseReleaseYml(path string) (string, error) {
 	releaseYml, err := ioutil.ReadFile(path)
-	check(err, CodeFailedSetup, "read start command")
+	check(err, packs.CodeFailed, "read start command")
 	var info struct {
 		Addons              []string          `yaml:"addons"`
 		DefaultProcessTypes map[string]string `yaml:"default_process_types"`
@@ -121,7 +116,7 @@ func parseReleaseYml(path string) (string, error) {
 
 func chownAll(user, group, path string) {
 	err := exec.Command("chown", "-R", user+":"+group, path).Run()
-	check(err, CodeFailedSetup, "chown", path, "to", user+":"+group)
+	check(err, packs.CodeFailed, "chown", path, "to", user+":"+group)
 }
 
 func check(err error, code int, action ...string) {

@@ -7,14 +7,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/sclevine/packs"
 )
 
 const (
-	CodeFailedEnv = iota + 1
-	CodeFailedSetup
-	CodeFailedBuild
-	CodeInvalidArgs
-
 	Cytokine     = "/packs/cytokine"
 	MetadataFile = "release.yml"
 )
@@ -50,7 +47,7 @@ func main() {
 	if strings.Join(buildpacks, "") == "" && !skipDetect {
 		buildpack, err := detect(appDir, buildpacksDir)
 		if err != nil || buildpack == "" {
-			fatal(err, CodeFailedSetup, "detect")
+			fatal(err, packs.CodeFailed, "detect")
 		}
 
 		buildpacks = []string{buildpack}
@@ -60,27 +57,27 @@ func main() {
 
 	err := compile(appDir, cacheDir, envDir, buildpacksDir, buildpackOptions)
 	if err != nil {
-		fatal(err, CodeFailedBuild, "compile")
+		fatal(err, packs.CodeFailedBuild, "compile")
 	}
 
 	err = release(appDir, buildpacksDir, filepath.Join(appDir, MetadataFile), buildpackOptions)
 	if err != nil {
-		fatal(err, CodeFailedBuild, "release")
+		fatal(err, packs.CodeFailedBuild, "release")
 	}
 
 	err = makeSlug("/tmp/slug.tgz", appDir)
 	if err != nil {
-		fatal(err, CodeFailedBuild, "make-slug")
+		fatal(err, packs.CodeFailedBuild, "make-slug")
 	}
 
 	err = os.Rename("/tmp/slug.tgz", outputSlug)
 	if err != nil {
-		fatal(err, CodeFailedBuild, "move-slug")
+		fatal(err, packs.CodeFailedBuild, "move-slug")
 	}
 
 	err = compress(cacheDir, outputCache)
 	if err != nil {
-		fatal(err, CodeFailedSetup, "tar", outputCache, "src", cacheDir)
+		fatal(err, packs.CodeFailed, "tar", outputCache, "src", cacheDir)
 	}
 }
 
