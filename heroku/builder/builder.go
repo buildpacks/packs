@@ -1,21 +1,12 @@
 package main
 
 import (
-	"encoding/json"
+	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"syscall"
-
-	bal "code.cloudfoundry.org/buildpackapplifecycle"
-	"code.cloudfoundry.org/cli/cf/appfiles"
-
-	herokuapp "github.com/sclevine/packs/heroku/app"
 )
 
 const (
@@ -23,174 +14,140 @@ const (
 	CodeFailedSetup
 	CodeFailedBuild
 	CodeInvalidArgs
+
+	Cytokine = "/packs/cytokine"
+	MetadataFile = "release.yml"
 )
 
 func main() {
-	config := bal.NewLifecycleBuilderConfig(nil, false, false)
-	err := config.Parse(os.Args[1:])
-	check(err, CodeInvalidArgs, "invalid args")
+	var buildpacksDir string
+	var buildpackOrder string
+	var skipDetect bool
+	var appDir string
+	var cacheDir string
+	var envDir string
+	var outputSlug string
+	var outputCache string
+	flag.StringVar(&buildpacksDir, "buildpacksDir", "/var/lib/buildpacks", "directory containing buildpacks")
+	flag.StringVar(&buildpackOrder, "buildpackOrder", "heroku/ruby", "list of buildpacks to run")
+	flag.BoolVar(&skipDetect, "skipDetect", false, "run detection")
+	flag.StringVar(&appDir, "appDir", "/tmp/app", "directory containing the app")
+	flag.StringVar(&cacheDir, "cacheDir", "/tmp/cache", "directory containing containing the cache")
+	flag.StringVar(&envDir, "envDir", "/tmp/env", "directory containing the env vars")
+	flag.StringVar(&outputSlug, "outputSlug", "/out/slug.tgz", "output file containing the slug")
+	flag.StringVar(&outputCache, "outputCache", "/cache/cache.tgz", "output file containing the cache")
 
-	var (
-		extraArgs      []string
-		workingDir     = pwd()
-		appZip         = os.Getenv("PACK_APP_ZIP")
-		appDir         = config.BuildDir()
-		cacheDir       = config.BuildArtifactsCacheDir()
-		cacheTar       = config.OutputBuildArtifactsCache()
-		cacheTarDir    = filepath.Dir(cacheTar)
-		slugletDir     = filepath.Dir(config.OutputDroplet())
-		metadataDir    = filepath.Dir(config.OutputMetadata())
-		buildpacksDir  = config.BuildpacksDir()
-		buildpackConf  = filepath.Join(buildpacksDir, "config.json")
-		buildpackOrder = config.BuildpackOrder()
-		skipDetect     = config.SkipDetect()
-	)
+	flag.Parse()
 
-	if appZip != "" {
-		copyAppZip(appZip, appDir)
-	} else if appDir != workingDir {
-		copyAppDir(workingDir, appDir)
+	os.MkdirAll(appDir, os.ModeTemporary)
+	os.MkdirAll(cacheDir, os.ModeTemporary)
+	os.MkdirAll(envDir, os.ModeTemporary)
+	os.MkdirAll(buildpacksDir, os.ModePerm)
+	os.MkdirAll(filepath.Dir(outputSlug), os.ModePerm)
+	os.MkdirAll(filepath.Dir(outputCache), os.ModePerm)
+
+	buildpacks := strings.Split(buildpackOrder, ",")
+	if strings.Join(buildpacks, "") == "" && !skipDetect {
+		buildpack, err := detect(appDir, buildpacksDir)
+		if err != nil || buildpack == "" {
+			fatal(err, CodeFailedSetup, "detect")
+		}
+
+		buildpacks = []string{buildpack}
 	}
 
-	if _, err := os.Stat(cacheTar); err == nil {
-		untar(cacheTar, cacheDir)
+	buildpackOptions := createBuildpackOptions(buildpacks)
+
+	err := compile(appDir, cacheDir, envDir, buildpacksDir, buildpackOptions)
+	if err != nil {
+		fatal(err, CodeFailedBuild, "compile")
 	}
 
-	ensure(slugletDir, metadataDir, cacheTarDir)
-	ensureAll(appDir, cacheDir)
-	addBuildpacks("/buildpacks", buildpacksDir)
-
-	if strings.Join(buildpackOrder, "") == "" && !skipDetect {
-		extraArgs = append(extraArgs, "-buildpackOrder", reduceJSONFile("name", buildpackConf))
+	err = release(appDir, buildpacksDir, filepath.Join(appDir, MetadataFile), buildpackOptions)
+	if err != nil {
+		fatal(err, CodeFailedBuild, "release")
 	}
 
-	uid, gid := userLookup("heroku")
-	setupEnv()
+	err = makeSlug("/tmp/slug.tgz", appDir)
+	if err != nil {
+		fatal(err, CodeFailedBuild, "make-slug")
+	}
 
-	cmd := exec.Command("/lifecycle/builder", append(os.Args[1:], extraArgs...)...)
-	cmd.Dir = appDir
+	err = os.Rename("/tmp/slug.tgz", outputSlug)
+	if err != nil {
+		fatal(err, CodeFailedBuild, "move-slug")
+	}
+
+	err = compress(cacheDir, outputCache)
+	if err != nil {
+		fatal(err, CodeFailedSetup, "tar", outputCache, "src", cacheDir)
+	}
+}
+
+func detect(appDir, buildpackDir string) (string, error) {
+	cmd := exec.Command(Cytokine, "detect-buildpack", "--verbose", appDir, buildpackDir)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		properties := strings.Split(string(out), " ")
+		for _, property := range properties {
+			if strings.LastIndex(property, "buildpack=") == 0 {
+				rawBuildpackString := strings.Replace(property, "buildpack=", "", 1)
+				return strings.TrimSpace(strings.Replace(rawBuildpackString, "\"", "", 2)), err
+			}
+		}
+		return "", nil
+	} else {
+		return "", err
+	}
+}
+
+func compile(appDir, cacheDir, envDir, buildpackDir string, buildpacks []string) error {
+
+	args := append([]string{"run-buildpacks", appDir, cacheDir, envDir, buildpackDir}, buildpacks...)
+	cmd := exec.Command(Cytokine, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Credential: &syscall.Credential{Uid: uid, Gid: gid},
+
+	// TODO don't run the buildpack as root
+	//uid, gid := userLookup("heroku")
+	//cmd.SysProcAttr = &syscall.SysProcAttr{
+	//	Credential: &syscall.Credential{Uid: uid, Gid: gid},
+	//}
+
+	err := cmd.Run()
+	return err
+}
+
+func release(appDir, buildpackDir, metadataFile string, buildpacks []string) error {
+	args := append([]string{"release-buildpacks", appDir, buildpackDir, metadataFile}, buildpacks...)
+	err := exec.Command(Cytokine, args...).Run()
+	return err
+}
+
+func makeSlug(outputSlug, appDir string) error {
+	cmd := exec.Command(Cytokine, "make-slug", outputSlug, appDir)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	return err
+}
+
+func createBuildpackOptions(buildpacks []string) []string {
+	buildpacksAsOpts := make([]string, len(buildpacks))
+	for i, buildpack := range buildpacks {
+		buildpacksAsOpts[i] = fmt.Sprintf("--buildpack=%s", buildpack)
 	}
-
-	err = cmd.Run()
-	check(err, CodeFailedBuild, "build")
+	return buildpacksAsOpts
 }
 
-func copyAppDir(src, dst string) {
-	copier := appfiles.ApplicationFiles{}
-	files, err := copier.AppFilesInDir(src)
-	check(err, CodeFailedSetup, "analyze app")
-	err = copier.CopyFiles(files, src, dst)
-	check(err, CodeFailedSetup, "copy app")
+func compress(src, tgz string) error {
+	// TODO capture error messages and log them in debug mode
+	return exec.Command("tar", "-C", src, "-czf", tgz, ".").Run()
 }
 
-func copyAppZip(src, dst string) {
-	zipper := appfiles.ApplicationZipper{}
-	tmpDir, err := ioutil.TempDir("", "pack")
-	check(err, CodeFailedSetup, "create temp dir")
-	defer os.RemoveAll(tmpDir)
-	err = zipper.Unzip(src, tmpDir)
-	check(err, CodeFailedSetup, "unzip app")
-	copyAppDir(tmpDir, dst)
-}
-
-func ensure(dirs ...string) {
-	for _, dir := range dirs {
-		err := os.MkdirAll(dir, 0777)
-		check(err, CodeFailedSetup, "make directory", dir)
-		err = exec.Command("chown", "heroku:heroku", dir).Run()
-		check(err, CodeFailedSetup, "chown", dir, "to heroku:heroku")
-	}
-}
-
-func ensureAll(dirs ...string) {
-	for _, dir := range dirs {
-		err := os.MkdirAll(dir, 0777)
-		check(err, CodeFailedSetup, "make directory", dir)
-		err = exec.Command("chown", "-R", "heroku:heroku", dir).Run()
-		check(err, CodeFailedSetup, "recursively chown", dir, "to", "heroku:heroku")
-	}
-}
-
-func addBuildpacks(src, dst string) {
-	files, err := ioutil.ReadDir(src)
-	if os.IsNotExist(err) {
-		return
-	}
-	check(err, CodeFailedSetup, "setup buildpacks", src)
-
-	for _, f := range files {
-		filename := f.Name()
-		ext := filepath.Ext(filename)
-		if strings.ToLower(ext) != ".zip" || len(filename) != 36 {
-			continue
-		}
-		sum := strings.ToLower(strings.TrimSuffix(filename, ext))
-		unzip(filepath.Join(src, filename), filepath.Join(dst, sum))
-	}
-}
-
-func reduceJSONFile(key string, path string) string {
-	f, err := os.Open(path)
-	check(err, CodeFailedSetup, "open", path)
-	var list []map[string]string
-	err = json.NewDecoder(f).Decode(&list)
-	check(err, CodeFailedSetup, "decode", path)
-
-	var out []string
-	for _, m := range list {
-		out = append(out, m[key])
-	}
-	return strings.Join(out, ",")
-}
-
-func setupEnv() {
-	app, err := herokuapp.New()
-	check(err, CodeFailedEnv, "build app env")
-	for k, v := range app.Stage() {
-		err := os.Setenv(k, v)
-		check(err, CodeFailedEnv, "set app env")
-	}
-}
-
-func unzip(zip, dst string) {
-	err := os.MkdirAll(dst, 0777)
-	check(err, CodeFailedSetup, "ensure directory", dst)
-	err = exec.Command("unzip", "-qq", zip, "-d", dst).Run()
-	check(err, CodeFailedSetup, "unzip", zip, "to", dst)
-}
-
-func untar(tar, dst string) {
-	err := os.MkdirAll(dst, 0777)
-	check(err, CodeFailedSetup, "ensure directory", dst)
-	err = exec.Command("tar", "-C", dst, "-xzf", tar).Run()
-	check(err, CodeFailedSetup, "untar", tar, "to", dst)
-}
-
-func pwd() string {
-	wd, err := os.Getwd()
-	check(err, CodeFailedSetup, "get working directory")
-	return wd
-}
-
-func userLookup(u string) (uid, gid uint32) {
-	usr, err := user.Lookup(u)
-	check(err, CodeFailedSetup, "find user", u)
-	uid64, err := strconv.ParseUint(usr.Uid, 10, 32)
-	check(err, CodeFailedSetup, "parse uid", usr.Uid)
-	gid64, err := strconv.ParseUint(usr.Gid, 10, 32)
-	check(err, CodeFailedSetup, "parse gid", usr.Gid)
-	return uint32(uid64), uint32(gid64)
-}
-
-func check(err error, code int, action ...string) {
-	if err == nil {
-		return
-	}
+func fatal(err error, code int, action ...string) {
 	message := "failed to " + strings.Join(action, " ")
 	fmt.Fprintf(os.Stderr, "Error: %s: %s", message, err)
 	os.Exit(code)
