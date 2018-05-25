@@ -21,7 +21,6 @@ func TestApp(t *testing.T) {
 func testStage(t *testing.T, when spec.G, it spec.S) {
 	var (
 		app *pkgapp.App
-		set func(k, v string)
 	)
 
 	it.Before(func() {
@@ -29,7 +28,7 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 		if app, err = pkgapp.New(); err != nil {
 			t.Fatalf("Failed to create app: %s\n", err)
 		}
-		app.Env, set = env()
+		app.Env, _ = env()
 	})
 
 	it("should return the default staging env", func() {
@@ -54,7 +53,6 @@ func testStage(t *testing.T, when spec.G, it spec.S) {
 func testLaunch(t *testing.T, when spec.G, it spec.S) {
 	var (
 		app *pkgapp.App
-		set func(k, v string)
 	)
 
 	it.Before(func() {
@@ -62,7 +60,7 @@ func testLaunch(t *testing.T, when spec.G, it spec.S) {
 		if app, err = pkgapp.New(); err != nil {
 			t.Fatalf("Failed to create app: %s\n", err)
 		}
-		app.Env, set = env()
+		app.Env, _ = env()
 	})
 
 	it("should return the default launch env", func() {

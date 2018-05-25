@@ -15,7 +15,7 @@ const (
 	CodeFailedBuild
 	CodeInvalidArgs
 
-	Cytokine = "/packs/cytokine"
+	Cytokine     = "/packs/cytokine"
 	MetadataFile = "release.yml"
 )
 
