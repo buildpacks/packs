@@ -11,5 +11,6 @@
   name = "github.com/sclevine/spec"
 
 [[constraint]]
-  branch = "master"
+  branch = "remote-layer"
   name = "github.com/google/go-containerregistry"
+  source = "https://github.com/jonjohnsonjr/go-containerregistry"
