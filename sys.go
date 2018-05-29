@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"log"
 )
 
 const (
@@ -52,7 +53,7 @@ func Exit(err error) {
 	if err == nil {
 		os.Exit(0)
 	}
-	fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+	log.Printf("Error: %s\n", err)
 	if err, ok := err.(*ErrorFail); ok {
 		os.Exit(err.Code)
 	}
