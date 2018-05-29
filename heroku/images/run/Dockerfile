@@ -1,7 +1,7 @@
 ARG stack
 FROM packs/${stack}
 
-ARG port=5000
+ARG port=8080
 
 WORKDIR /workspace
 
