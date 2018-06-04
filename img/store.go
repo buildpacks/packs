@@ -12,7 +12,6 @@ import (
 
 type Store interface {
 	Ref() name.Reference
-	Digest() (v1.Hash, error)
 	Image() (v1.Image, error)
 	Write(image v1.Image) error
 }
@@ -32,39 +31,18 @@ func NewRegistry(ref string) (Store, error) {
 type registryStore struct {
 	ref    name.Reference
 	auth   authn.Authenticator
-	cache  v1.Image
 }
 
 func (r *registryStore) Ref() name.Reference {
 	return r.ref
 }
 
-func (r *registryStore) Digest() (v1.Hash, error) {
-	image, err := r.Image()
-	if err != nil {
-		return v1.Hash{}, err
-	}
-	return image.Digest()
-}
-
 func (r *registryStore) Image() (v1.Image, error) {
-	if r.cache != nil {
-		return r.cache, nil
-	}
-	image, err := remote.Image(r.ref, r.auth, http.DefaultTransport)
-	if err != nil {
-		return nil, err
-	}
-	r.cache = image
-	return image, nil
+	return remote.Image(r.ref, r.auth, http.DefaultTransport)
 }
 
 func (r *registryStore) Write(image v1.Image) error {
-	if err := remote.Write(r.ref, image, r.auth, http.DefaultTransport, remote.WriteOptions{}); err != nil {
-		return err
-	}
-	r.cache = image
-	return nil
+	return remote.Write(r.ref, image, r.auth, http.DefaultTransport, remote.WriteOptions{})
 }
 
 func NewDaemon(tag string) (Store, error) {
@@ -81,14 +59,6 @@ type daemonStore struct {
 
 func (d *daemonStore) Ref() name.Reference {
 	return d.tag
-}
-
-func (d *daemonStore) Digest() (v1.Hash, error) {
-	image, err := d.Image()
-	if err != nil {
-		return v1.Hash{}, err
-	}
-	return image.Digest()
 }
 
 func (d *daemonStore) Image() (v1.Image, error) {

@@ -56,6 +56,10 @@ func export() error {
 	if err != nil {
 		return packs.FailErr(err, "access", stackName)
 	}
+	stackImage, err := stackStore.Image()
+	if err != nil {
+		return packs.FailErr(err, "get image for", stackName)
+	}
 
 	var (
 		repoImage v1.Image
@@ -74,23 +78,30 @@ func export() error {
 			return packs.FailErr(err, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
-		repoImage, err = img.Append(stackStore, layer)
+		repoImage, err = img.Append(stackImage, layer)
 		if err != nil {
 			return packs.FailErr(err, "append droplet to", stackName)
 		}
 	} else {
-		repoImage, err = img.Rebase(repoStore, stackStore, func(labels map[string]string) (img.Store, error) {
+		repoImage, err = repoStore.Image()
+		if err != nil {
+			return packs.FailErr(err, "get image for", repoName)
+		}
+		repoImage, err = img.Rebase(repoImage, stackImage, func(labels map[string]string) (v1.Image, error) {
 			if err := json.Unmarshal([]byte(labels[packs.BuildLabel]), &metadata); err != nil {
-				return nil, packs.FailErr(err, "get build metadata for", repoName)
+				return nil, err
 			}
-			digestName := metadata.Stack.Name + "@" + metadata.Stack.SHA
-			return img.NewRegistry(digestName)
+			oldStore, err := img.NewRegistry(metadata.Stack.Name + "@" + metadata.Stack.SHA)
+			if err != nil {
+				return nil, err
+			}
+			return oldStore.Image()
 		})
 		if err != nil {
 			return packs.FailErr(err, "rebase", repoName, "on", stackName)
 		}
 	}
-	stackDigest, err := stackStore.Digest()
+	stackDigest, err := stackImage.Digest()
 	if err != nil {
 		return packs.FailErr(err, "get digest for", stackName)
 	}
