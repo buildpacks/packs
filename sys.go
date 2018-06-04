@@ -3,10 +3,10 @@ package packs
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
-	"log"
 )
 
 const (
