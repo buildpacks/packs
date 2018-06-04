@@ -19,12 +19,14 @@ import (
 
 	"net/http"
 
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 
-	"github.com/google/go-containerregistry/authn"
-	"github.com/google/go-containerregistry/name"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
 )
+
+func init() { Root.AddCommand(NewCmdCopy()) }
 
 func NewCmdCopy() *cobra.Command {
 	return &cobra.Command{
@@ -64,10 +66,7 @@ func doCopy(_ *cobra.Command, args []string) {
 		log.Fatalf("getting creds for %q: %v", dstRef, err)
 	}
 
-	wo := remote.WriteOptions{
-		MountPaths: []name.Repository{srcRef.Context()},
-	}
-
+	wo := remote.WriteOptions{}
 	if err := remote.Write(dstRef, img, dstAuth, http.DefaultTransport, wo); err != nil {
 		log.Fatalf("writing image %q: %v", dstRef, err)
 	}

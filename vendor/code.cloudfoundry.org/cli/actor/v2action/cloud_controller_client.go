@@ -1,6 +1,10 @@
 package v2action
 
-import "code.cloudfoundry.org/cli/api/cloudcontroller/ccv2"
+import (
+	"io"
+
+	"code.cloudfoundry.org/cli/api/cloudcontroller/ccv2"
+)
 
 //go:generate counterfeiter . CloudControllerClient
 
@@ -8,7 +12,7 @@ import "code.cloudfoundry.org/cli/api/cloudcontroller/ccv2"
 type CloudControllerClient interface {
 	CreateApplication(app ccv2.Application) (ccv2.Application, ccv2.Warnings, error)
 	CreateRoute(route ccv2.Route, generatePort bool) (ccv2.Route, ccv2.Warnings, error)
-	CreateServiceBinding(appGUID string, serviceBindingGUID string, parameters map[string]interface{}) (ccv2.ServiceBinding, ccv2.Warnings, error)
+	CreateServiceBinding(appGUID string, serviceBindingGUID string, bindingName string, parameters map[string]interface{}) (ccv2.ServiceBinding, ccv2.Warnings, error)
 	CreateUser(uaaUserID string) (ccv2.User, ccv2.Warnings, error)
 	DeleteOrganizationJob(orgGUID string) (ccv2.Job, ccv2.Warnings, error)
 	DeleteRoute(routeGUID string) (ccv2.Warnings, error)
@@ -63,6 +67,7 @@ type CloudControllerClient interface {
 	UpdateSecurityGroupSpace(securityGroupGUID string, spaceGUID string) (ccv2.Warnings, error)
 	UpdateSecurityGroupStagingSpace(securityGroupGUID string, spaceGUID string) (ccv2.Warnings, error)
 	UploadApplicationPackage(appGUID string, existingResources []ccv2.Resource, newResources ccv2.Reader, newResourcesLength int64) (ccv2.Job, ccv2.Warnings, error)
+	UploadDroplet(appGUID string, droplet io.Reader, dropletLength int64) (ccv2.Job, ccv2.Warnings, error)
 
 	API() string
 	APIVersion() string

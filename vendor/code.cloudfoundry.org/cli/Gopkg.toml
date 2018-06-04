@@ -25,6 +25,7 @@ required = ["github.com/gorilla/websocket"]
 [prune]
   non-go = true
   go-tests = true
+  unused-packages = true
 
 [[constraint]]
   branch = "master"
@@ -160,6 +161,9 @@ required = ["github.com/gorilla/websocket"]
   version = "1.0.18"
 
 [[constraint]]
-  branch = "off_by_one_scanner_error_line"
   name = "gopkg.in/yaml.v2"
-  source = "github.com/vitreuz/yaml"
+  version = "2.2.1"
+
+[[constraint]]
+  name = "github.com/cloudfoundry/bosh-cli"
+  version = "3.0.1"

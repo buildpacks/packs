@@ -35,6 +35,8 @@ func ConvertToTranslatableError(err error) error {
 		return DockerPasswordNotSetError{}
 	case actionerror.DomainNotFoundError:
 		return DomainNotFoundError(e)
+	case manifest.EmptyBuildpacksError:
+		return EmptyBuildpacksError(e)
 	case actionerror.EmptyDirectoryError:
 		return EmptyDirectoryError(e)
 	case actionerror.FileChangedError:
@@ -45,6 +47,8 @@ func ConvertToTranslatableError(err error) error {
 		return HostnameWithTCPDomainError(e)
 	case actionerror.HTTPHealthCheckInvalidError:
 		return HTTPHealthCheckInvalidError{}
+	case actionerror.InvalidBuildpacksError:
+		return InvalidBuildpacksError{}
 	case actionerror.InvalidHTTPRouteSettings:
 		return PortNotAllowedWithHTTPDomainError(e)
 	case actionerror.InvalidRouteError:
@@ -161,6 +165,8 @@ func ConvertToTranslatableError(err error) error {
 		return TriggerLegacyPushError{InheritanceRelated: true}
 	case manifest.GlobalFieldsError:
 		return TriggerLegacyPushError{GlobalRelated: e.Fields}
+	case manifest.InterpolationError:
+		return InterpolationError(e)
 
 	// Plugin Execution Errors
 	case pluginerror.RawHTTPStatusError:

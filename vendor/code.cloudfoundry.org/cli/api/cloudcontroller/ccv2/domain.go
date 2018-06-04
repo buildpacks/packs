@@ -1,8 +1,6 @@
 package ccv2
 
 import (
-	"encoding/json"
-
 	"code.cloudfoundry.org/cli/api/cloudcontroller"
 	"code.cloudfoundry.org/cli/api/cloudcontroller/ccerror"
 	"code.cloudfoundry.org/cli/api/cloudcontroller/ccv2/constant"
@@ -40,7 +38,8 @@ func (domain *Domain) UnmarshalJSON(data []byte) error {
 			RouterGroupType string `json:"router_group_type"`
 		} `json:"entity"`
 	}
-	if err := json.Unmarshal(data, &ccDomain); err != nil {
+	err := cloudcontroller.DecodeJSON(data, &ccDomain)
+	if err != nil {
 		return err
 	}
 
@@ -51,29 +50,32 @@ func (domain *Domain) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetSharedDomain returns the Shared Domain associated with the provided
-// Domain GUID.
-func (client *Client) GetSharedDomain(domainGUID string) (Domain, Warnings, error) {
+// GetOrganizationPrivateDomains returns the private domains associated with an organization.
+func (client *Client) GetOrganizationPrivateDomains(orgGUID string, filters ...Filter) ([]Domain, Warnings, error) {
 	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.GetSharedDomainRequest,
-		URIParams:   map[string]string{"shared_domain_guid": domainGUID},
+		RequestName: internal.GetOrganizationPrivateDomainsRequest,
+		Query:       ConvertFilterParameters(filters),
+		URIParams:   map[string]string{"organization_guid": orgGUID},
 	})
 	if err != nil {
-		return Domain{}, nil, err
+		return []Domain{}, nil, err
 	}
 
-	var domain Domain
-	response := cloudcontroller.Response{
-		Result: &domain,
-	}
+	fullDomainsList := []Domain{}
+	warnings, err := client.paginate(request, Domain{}, func(item interface{}) error {
+		if domain, ok := item.(Domain); ok {
+			domain.Type = constant.PrivateDomain
+			fullDomainsList = append(fullDomainsList, domain)
+		} else {
+			return ccerror.UnknownObjectInListError{
+				Expected:   Domain{},
+				Unexpected: item,
+			}
+		}
+		return nil
+	})
 
-	err = client.connection.Make(request, &response)
-	if err != nil {
-		return Domain{}, response.Warnings, err
-	}
-
-	domain.Type = constant.SharedDomain
-	return domain, response.Warnings, nil
+	return fullDomainsList, warnings, err
 }
 
 // GetPrivateDomain returns the Private Domain associated with the provided
@@ -101,6 +103,58 @@ func (client *Client) GetPrivateDomain(domainGUID string) (Domain, Warnings, err
 	return domain, response.Warnings, nil
 }
 
+// GetPrivateDomains returns the private domains this client has access to.
+func (client *Client) GetPrivateDomains(filters ...Filter) ([]Domain, Warnings, error) {
+	request, err := client.newHTTPRequest(requestOptions{
+		RequestName: internal.GetPrivateDomainsRequest,
+		Query:       ConvertFilterParameters(filters),
+	})
+	if err != nil {
+		return []Domain{}, nil, err
+	}
+
+	fullDomainsList := []Domain{}
+	warnings, err := client.paginate(request, Domain{}, func(item interface{}) error {
+		if domain, ok := item.(Domain); ok {
+			domain.Type = constant.PrivateDomain
+			fullDomainsList = append(fullDomainsList, domain)
+		} else {
+			return ccerror.UnknownObjectInListError{
+				Expected:   Domain{},
+				Unexpected: item,
+			}
+		}
+		return nil
+	})
+
+	return fullDomainsList, warnings, err
+}
+
+// GetSharedDomain returns the Shared Domain associated with the provided
+// Domain GUID.
+func (client *Client) GetSharedDomain(domainGUID string) (Domain, Warnings, error) {
+	request, err := client.newHTTPRequest(requestOptions{
+		RequestName: internal.GetSharedDomainRequest,
+		URIParams:   map[string]string{"shared_domain_guid": domainGUID},
+	})
+	if err != nil {
+		return Domain{}, nil, err
+	}
+
+	var domain Domain
+	response := cloudcontroller.Response{
+		Result: &domain,
+	}
+
+	err = client.connection.Make(request, &response)
+	if err != nil {
+		return Domain{}, response.Warnings, err
+	}
+
+	domain.Type = constant.SharedDomain
+	return domain, response.Warnings, nil
+}
+
 // GetSharedDomains returns the global shared domains.
 func (client *Client) GetSharedDomains(filters ...Filter) ([]Domain, Warnings, error) {
 	request, err := client.newHTTPRequest(requestOptions{
@@ -115,34 +169,6 @@ func (client *Client) GetSharedDomains(filters ...Filter) ([]Domain, Warnings, e
 	warnings, err := client.paginate(request, Domain{}, func(item interface{}) error {
 		if domain, ok := item.(Domain); ok {
 			domain.Type = constant.SharedDomain
-			fullDomainsList = append(fullDomainsList, domain)
-		} else {
-			return ccerror.UnknownObjectInListError{
-				Expected:   Domain{},
-				Unexpected: item,
-			}
-		}
-		return nil
-	})
-
-	return fullDomainsList, warnings, err
-}
-
-// GetOrganizationPrivateDomains returns the private domains associated with an organization.
-func (client *Client) GetOrganizationPrivateDomains(orgGUID string, filters ...Filter) ([]Domain, Warnings, error) {
-	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.GetOrganizationPrivateDomainsRequest,
-		Query:       ConvertFilterParameters(filters),
-		URIParams:   map[string]string{"organization_guid": orgGUID},
-	})
-	if err != nil {
-		return []Domain{}, nil, err
-	}
-
-	fullDomainsList := []Domain{}
-	warnings, err := client.paginate(request, Domain{}, func(item interface{}) error {
-		if domain, ok := item.(Domain); ok {
-			domain.Type = constant.PrivateDomain
 			fullDomainsList = append(fullDomainsList, domain)
 		} else {
 			return ccerror.UnknownObjectInListError{

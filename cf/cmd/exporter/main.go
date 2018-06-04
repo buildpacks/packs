@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1"
 
 	"github.com/sclevine/packs"
 	"github.com/sclevine/packs/cf"

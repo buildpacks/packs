@@ -33,14 +33,14 @@ var _ = Describe("Manifest with paths", func() {
 		Expect(os.RemoveAll(pathToManifest)).ToNot(HaveOccurred())
 	})
 
-	Describe("ReadAndMergeManifests", func() {
+	Describe("ReadAndInterpolateManifest", func() {
 		var (
 			apps       []Application
 			executeErr error
 		)
 
 		JustBeforeEach(func() {
-			apps, executeErr = ReadAndMergeManifests(pathToManifest)
+			apps, executeErr = ReadAndInterpolateManifest(pathToManifest, nil, nil)
 		})
 
 		BeforeEach(func() {
@@ -58,6 +58,7 @@ applications:
 		It("reads the manifest file", func() {
 			tempDir := filepath.Dir(pathToManifest)
 			parentTempDir := filepath.Dir(tempDir)
+
 			Expect(executeErr).ToNot(HaveOccurred())
 			Expect(apps).To(ConsistOf(
 				Application{Name: "app-1", Path: "/foo"},

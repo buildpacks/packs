@@ -8,13 +8,15 @@ import (
 )
 
 type Application struct {
-	Buildpack      types.FilteredString
+	Buildpack types.FilteredString
+	// Buildpacks     []string
 	Command        types.FilteredString
 	DiskQuota      types.NullByteSizeInMb
 	DockerImage    string
 	DockerPassword string
 	DockerUsername string
 	Domain         string
+	DropletPath    string
 	// EnvironmentVariables can be any valid json type (ie, strings not
 	// guaranteed, although CLI only ships strings).
 	EnvironmentVariables    map[string]string
@@ -43,16 +45,50 @@ type Application struct {
 	DeprecatedNoHostname interface{}
 }
 
+func (app Application) MarshalYAML() (interface{}, error) {
+	var m = rawManifestApplication{
+		Buildpack: app.Buildpack.Value,
+		// Buildpacks:              app.Buildpacks,
+		Command:                 app.Command.Value,
+		Docker:                  rawDockerInfo{Image: app.DockerImage, Username: app.DockerUsername},
+		DropletPath:             app.DropletPath,
+		EnvironmentVariables:    app.EnvironmentVariables,
+		HealthCheckHTTPEndpoint: app.HealthCheckHTTPEndpoint,
+		HealthCheckType:         app.HealthCheckType,
+		Name:                    app.Name,
+		NoRoute:                 app.NoRoute,
+		Path:                    app.Path,
+		Services:                app.Services,
+		StackName:               app.StackName,
+		Timeout:                 app.HealthCheckTimeout,
+	}
+
+	m.DiskQuota = app.DiskQuota.String()
+	m.Memory = app.Memory.String()
+
+	if app.Instances.IsSet {
+		m.Instances = &app.Instances.Value
+	}
+
+	for _, route := range app.Routes {
+		m.Routes = append(m.Routes, rawManifestRoute{Route: route})
+	}
+
+	return m, nil
+}
+
 func (app Application) String() string {
 	return fmt.Sprintf(
-		"App Name: '%s', Buildpack IsSet: %t, Buildpack: '%s', Command IsSet: %t, Command: '%s', Disk Quota: '%s', Docker Image: '%s', Health Check HTTP Endpoint: '%s', Health Check Timeout: '%d', Health Check Type: '%s', Hostname: '%s', Instances IsSet: %t, Instances: '%d', Memory: '%s', No-Hostname: %t, No-Route: %t, Path: '%s', RandomRoute: %t, RoutePath: '%s', Routes: [%s], Services: [%s], Stack Name: '%s'",
+		"App Name: '%s', Buildpack IsSet: %t, Buildpack: '%s', Command IsSet: %t, Command: '%s', Disk Quota: '%s', Docker Image: '%s', Droplet Path: '%s', Health Check HTTP Endpoint: '%s', Health Check Timeout: '%d', Health Check Type: '%s', Hostname: '%s', Instances IsSet: %t, Instances: '%d', Memory: '%s', No-Hostname: %t, No-Route: %t, Path: '%s', RandomRoute: %t, RoutePath: '%s', Routes: [%s], Services: [%s], Stack Name: '%s'",
 		app.Name,
 		app.Buildpack.IsSet,
 		app.Buildpack.Value,
+		// strings.Join(app.Buildpacks, ", "),
 		app.Command.IsSet,
 		app.Command.Value,
 		app.DiskQuota,
 		app.DockerImage,
+		app.DropletPath,
 		app.HealthCheckHTTPEndpoint,
 		app.HealthCheckTimeout,
 		app.HealthCheckType,
@@ -71,35 +107,6 @@ func (app Application) String() string {
 	)
 }
 
-func (app Application) MarshalYAML() (interface{}, error) {
-	var m = rawManifestApplication{
-		Buildpack:               app.Buildpack.Value,
-		Command:                 app.Command.Value,
-		Docker:                  rawDockerInfo{Image: app.DockerImage, Username: app.DockerUsername},
-		EnvironmentVariables:    app.EnvironmentVariables,
-		HealthCheckHTTPEndpoint: app.HealthCheckHTTPEndpoint,
-		HealthCheckType:         app.HealthCheckType,
-		Name:                    app.Name,
-		NoRoute:                 app.NoRoute,
-		Path:                    app.Path,
-		Services:                app.Services,
-		StackName:               app.StackName,
-		Timeout:                 app.HealthCheckTimeout,
-	}
-	m.DiskQuota = app.DiskQuota.String()
-	m.Memory = app.Memory.String()
-
-	if app.Instances.IsSet {
-		m.Instances = &app.Instances.Value
-	}
-
-	for _, route := range app.Routes {
-		m.Routes = append(m.Routes, rawManifestRoute{Route: route})
-	}
-
-	return m, nil
-}
-
 func (app *Application) UnmarshalYAML(unmarshaller func(interface{}) error) error {
 	var m rawManifestApplication
 
@@ -114,6 +121,7 @@ func (app *Application) UnmarshalYAML(unmarshaller func(interface{}) error) erro
 	app.DeprecatedNoHostname = m.DeprecatedNoHostname
 	app.DockerImage = m.Docker.Image
 	app.DockerUsername = m.Docker.Username
+	app.DropletPath = m.DropletPath
 	app.HealthCheckHTTPEndpoint = m.HealthCheckHTTPEndpoint
 	app.HealthCheckType = m.HealthCheckType
 	app.Name = m.Name
@@ -150,6 +158,17 @@ func (app *Application) UnmarshalYAML(unmarshaller func(interface{}) error) erro
 	if _, ok := exists["buildpack"]; ok {
 		app.Buildpack.ParseValue(m.Buildpack)
 		app.Buildpack.IsSet = true
+	}
+
+	if buildpacks, ok := exists["buildpacks"]; ok {
+		if buildpacks == nil {
+			return EmptyBuildpacksError{}
+		}
+
+		// app.Buildpacks = []string{}
+		// for _, buildpack := range m.Buildpacks {
+		// 	app.Buildpacks = append(app.Buildpacks, buildpack)
+		// }
 	}
 
 	if _, ok := exists["command"]; ok {

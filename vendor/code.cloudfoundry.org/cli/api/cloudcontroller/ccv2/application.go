@@ -85,17 +85,6 @@ type Application struct {
 	State constant.ApplicationState
 }
 
-// DockerCredentials are the authentication credentials to pull a docker image
-// from it's repository.
-type DockerCredentials struct {
-	// Username is the username for a user that has access to a given docker
-	// image.
-	Username string `json:"username,omitempty"`
-
-	// Password is the password for the user.
-	Password string `json:"password,omitempty"`
-}
-
 // MarshalJSON converts an application into a Cloud Controller Application.
 func (application Application) MarshalJSON() ([]byte, error) {
 	ccApp := struct {
@@ -182,15 +171,14 @@ func (application *Application) UnmarshalJSON(data []byte) error {
 			Name                     string                 `json:"name"`
 			PackageState             string                 `json:"package_state"`
 			PackageUpdatedAt         *time.Time             `json:"package_updated_at"`
+			SpaceGUID                string                 `json:"space_guid"`
 			StackGUID                string                 `json:"stack_guid"`
 			StagingFailedDescription string                 `json:"staging_failed_description"`
 			StagingFailedReason      string                 `json:"staging_failed_reason"`
 			State                    string                 `json:"state"`
 		} `json:"entity"`
 	}
-
-	decoder := cloudcontroller.NewJSONDecoder(data)
-	err := decoder.Decode(&ccApp)
+	err := cloudcontroller.DecodeJSON(data, &ccApp)
 	if err != nil {
 		return err
 	}
@@ -209,6 +197,7 @@ func (application *Application) UnmarshalJSON(data []byte) error {
 	application.Memory.ParseUint64Value(ccApp.Entity.Memory)
 	application.Name = ccApp.Entity.Name
 	application.PackageState = constant.ApplicationPackageState(ccApp.Entity.PackageState)
+	application.SpaceGUID = ccApp.Entity.SpaceGUID
 	application.StackGUID = ccApp.Entity.StackGUID
 	application.StagingFailedDescription = ccApp.Entity.StagingFailedDescription
 	application.StagingFailedReason = ccApp.Entity.StagingFailedReason
@@ -304,51 +293,6 @@ func (client *Client) GetApplications(filters ...Filter) ([]Application, Warning
 	return fullAppsList, warnings, err
 }
 
-// UpdateApplication updates the application with the given GUID. Note: Sending
-// DockerImage and StackGUID at the same time will result in an API error.
-func (client *Client) UpdateApplication(app Application) (Application, Warnings, error) {
-	body, err := json.Marshal(app)
-	if err != nil {
-		return Application{}, nil, err
-	}
-
-	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.PutAppRequest,
-		URIParams:   Params{"app_guid": app.GUID},
-		Body:        bytes.NewReader(body),
-	})
-	if err != nil {
-		return Application{}, nil, err
-	}
-
-	var updatedApp Application
-	response := cloudcontroller.Response{
-		Result: &updatedApp,
-	}
-
-	err = client.connection.Make(request, &response)
-	return updatedApp, response.Warnings, err
-}
-
-// RestageApplication restages the application with the given GUID.
-func (client *Client) RestageApplication(app Application) (Application, Warnings, error) {
-	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.PostAppRestageRequest,
-		URIParams:   Params{"app_guid": app.GUID},
-	})
-	if err != nil {
-		return Application{}, nil, err
-	}
-
-	var restagedApp Application
-	response := cloudcontroller.Response{
-		Result: &restagedApp,
-	}
-
-	err = client.connection.Make(request, &response)
-	return restagedApp, response.Warnings, err
-}
-
 // GetRouteApplications returns a list of Applications based off a route
 // GUID and the provided filters.
 func (client *Client) GetRouteApplications(routeGUID string, filters ...Filter) ([]Application, Warnings, error) {
@@ -375,4 +319,49 @@ func (client *Client) GetRouteApplications(routeGUID string, filters ...Filter) 
 	})
 
 	return fullAppsList, warnings, err
+}
+
+// RestageApplication restages the application with the given GUID.
+func (client *Client) RestageApplication(app Application) (Application, Warnings, error) {
+	request, err := client.newHTTPRequest(requestOptions{
+		RequestName: internal.PostAppRestageRequest,
+		URIParams:   Params{"app_guid": app.GUID},
+	})
+	if err != nil {
+		return Application{}, nil, err
+	}
+
+	var restagedApp Application
+	response := cloudcontroller.Response{
+		Result: &restagedApp,
+	}
+
+	err = client.connection.Make(request, &response)
+	return restagedApp, response.Warnings, err
+}
+
+// UpdateApplication updates the application with the given GUID. Note: Sending
+// DockerImage and StackGUID at the same time will result in an API error.
+func (client *Client) UpdateApplication(app Application) (Application, Warnings, error) {
+	body, err := json.Marshal(app)
+	if err != nil {
+		return Application{}, nil, err
+	}
+
+	request, err := client.newHTTPRequest(requestOptions{
+		RequestName: internal.PutAppRequest,
+		URIParams:   Params{"app_guid": app.GUID},
+		Body:        bytes.NewReader(body),
+	})
+	if err != nil {
+		return Application{}, nil, err
+	}
+
+	var updatedApp Application
+	response := cloudcontroller.Response{
+		Result: &updatedApp,
+	}
+
+	err = client.connection.Make(request, &response)
+	return updatedApp, response.Warnings, err
 }

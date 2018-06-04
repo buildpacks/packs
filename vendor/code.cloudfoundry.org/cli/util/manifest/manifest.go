@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/cloudfoundry/bosh-cli/director/template"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -30,21 +31,52 @@ func (manifest *Manifest) UnmarshalYAML(unmarshal func(interface{}) error) error
 	return nil
 }
 
-// ReadAndMergeManifests reads the manifest at provided path and returns a
-// fully merged set of applications.
-func ReadAndMergeManifests(pathToManifest string) ([]Application, error) {
-	raw, err := ioutil.ReadFile(pathToManifest)
+// ReadAndInterpolateManifest reads the manifest at the provided paths,
+// interpolates variables if a vars file is provided, and retunrs a fully
+// merged set of applications.
+func ReadAndInterpolateManifest(pathToManifest string, pathsToVarsFiles []string, vars []template.VarKV) ([]Application, error) {
+	rawManifest, err := ioutil.ReadFile(pathToManifest)
 	if err != nil {
 		return nil, err
+	}
+
+	tpl := template.NewTemplate(rawManifest)
+	fileVars := template.StaticVariables{}
+
+	for _, path := range pathsToVarsFiles {
+		rawVarsFile, ioerr := ioutil.ReadFile(path)
+		if ioerr != nil {
+			return nil, ioerr
+		}
+
+		var sv template.StaticVariables
+
+		err = yaml.Unmarshal(rawVarsFile, &sv)
+		if err != nil {
+			return nil, InvalidYAMLError{Err: err}
+		}
+
+		for k, v := range sv {
+			fileVars[k] = v
+		}
+	}
+
+	for _, kv := range vars {
+		fileVars[kv.Name] = kv.Value
+	}
+
+	rawManifest, err = tpl.Evaluate(fileVars, nil, template.EvaluateOpts{ExpectAllKeys: true})
+	if err != nil {
+		return nil, InterpolationError{Err: err}
 	}
 
 	var manifest Manifest
-	err = yaml.Unmarshal(raw, &manifest)
+
+	err = yaml.Unmarshal(rawManifest, &manifest)
 	if err != nil {
 		return nil, err
 	}
 
-	// turns the relative path into an absolute path
 	for i, app := range manifest.Applications {
 		if app.Path != "" && !filepath.IsAbs(app.Path) {
 			manifest.Applications[i].Path = filepath.Join(filepath.Dir(pathToManifest), app.Path)

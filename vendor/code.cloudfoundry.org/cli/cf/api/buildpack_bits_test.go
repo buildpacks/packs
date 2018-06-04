@@ -19,13 +19,13 @@ import (
 	"code.cloudfoundry.org/cli/cf/configuration/coreconfig"
 	"code.cloudfoundry.org/cli/cf/models"
 	"code.cloudfoundry.org/cli/cf/net"
-	testconfig "code.cloudfoundry.org/cli/util/testhelpers/configuration"
-	testnet "code.cloudfoundry.org/cli/util/testhelpers/net"
+	testconfig "code.cloudfoundry.org/cli/cf/util/testhelpers/configuration"
+	testnet "code.cloudfoundry.org/cli/cf/util/testhelpers/net"
 
 	. "code.cloudfoundry.org/cli/cf/api"
 	"code.cloudfoundry.org/cli/cf/terminal/terminalfakes"
 	"code.cloudfoundry.org/cli/cf/trace/tracefakes"
-	. "code.cloudfoundry.org/cli/util/testhelpers/matchers"
+	. "code.cloudfoundry.org/cli/cf/util/testhelpers/matchers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -90,6 +90,7 @@ var _ = Describe("BuildpackBitsRepository", func() {
 		Context("when buildpack path is a URL", func() {
 			var buildpackFileServerHandler = func(buildpackName string) http.HandlerFunc {
 				return func(writer http.ResponseWriter, request *http.Request) {
+					Expect(request.Header.Get("Connection")).To(Equal("close"))
 					Expect(request.URL.Path).To(Equal(fmt.Sprintf("/place/%s", buildpackName)))
 					f, err := os.Open(filepath.Join(buildpacksDir, buildpackName))
 					Expect(err).NotTo(HaveOccurred())

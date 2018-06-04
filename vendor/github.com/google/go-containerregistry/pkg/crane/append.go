@@ -20,12 +20,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/google/go-containerregistry/authn"
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1/mutate"
-	"github.com/google/go-containerregistry/v1/remote"
-	"github.com/google/go-containerregistry/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
+
+func init() { Root.AddCommand(NewCmdAppend()) }
 
 func NewCmdAppend() *cobra.Command {
 	var output string
@@ -80,16 +82,12 @@ func doAppend(src, dst, tar, output string) {
 		return
 	}
 
-	opts := remote.WriteOptions{}
-	if srcRef.Context().RegistryStr() == dstTag.Context().RegistryStr() {
-		opts.MountPaths = append(opts.MountPaths, srcRef.Context())
-	}
-
 	dstAuth, err := authn.DefaultKeychain.Resolve(dstTag.Context().Registry)
 	if err != nil {
 		log.Fatalf("getting creds for %q: %v", dstTag, err)
 	}
 
+	opts := remote.WriteOptions{}
 	if err := remote.Write(dstTag, image, dstAuth, http.DefaultTransport, opts); err != nil {
 		log.Fatalf("writing image %q: %v", dstTag, err)
 	}

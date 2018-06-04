@@ -80,10 +80,38 @@
   version = "v3.5.1"
 
 [[projects]]
+  name = "github.com/bmatcuk/doublestar"
+  packages = ["."]
+  revision = "b3608229437ba4dc33dae64d56a79a2a73f1f6b2"
+  version = "v1.0.9"
+
+[[projects]]
   branch = "master"
   name = "github.com/bmizerany/pat"
   packages = ["."]
   revision = "6226ea591a40176dd3ff9cd8eff81ed6ca721a00"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/charlievieth/fs"
+  packages = ["."]
+  revision = "7dc373669fa10ddf827c37c595dee30a2f001be9"
+
+[[projects]]
+  name = "github.com/cloudfoundry/bosh-cli"
+  packages = ["director/template"]
+  revision = "712bfd7271b478ba03c3f604339e2eefbec4647c"
+  version = "v3.0.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/cloudfoundry/bosh-utils"
+  packages = [
+    "errors",
+    "logger",
+    "system"
+  ]
+  revision = "c6a922e299b8eb5eaadad8a2842e3ab7e043dc5d"
 
 [[projects]]
   branch = "master"
@@ -100,13 +128,25 @@
     "consumer/internal",
     "errors"
   ]
-  revision = "9d59e2b25abb53ee8907660061e12ef68bbb4503"
+  revision = "5beab4261046115d89e363902e75155f7370849c"
 
 [[projects]]
   branch = "master"
   name = "github.com/cloudfoundry/sonde-go"
   packages = ["events"]
-  revision = "c48c4f0332609a0e402af4ae31595204c9f7b363"
+  revision = "b33733203bb48d7c56de7cb639d77f78b0449d19"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/cppforlife/go-patch"
+  packages = ["patch"]
+  revision = "250da0e0e68ce3367b4302f34218f6c064eb9559"
+
+[[projects]]
+  name = "github.com/cyphar/filepath-securejoin"
+  packages = ["."]
+  revision = "06bda8370f45268db985f7af15732444d94ed51c"
+  version = "v0.2.1"
 
 [[projects]]
   branch = "master"
@@ -185,13 +225,13 @@
     "jlexer",
     "jwriter"
   ]
-  revision = "32fa128f234d041f196a9f3e0fea5ac9772c08e1"
+  revision = "8b799c424f57fa123fc63a99d6383bc6e4c02578"
 
 [[projects]]
   branch = "master"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
-  revision = "6fcc0c1fd9b620311d821b106a400b35dc95c497"
+  revision = "efa589957cd060542a26d2dd7832fd6a6c6c3ade"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -241,7 +281,7 @@
     "reporters/stenographer/support/go-isatty",
     "types"
   ]
-  revision = "6c46eb8334b30dc55b42f1a1c725d5ce97375390"
+  revision = "26d21430af911e84459ee38099f0a07e57a7f9b0"
 
 [[projects]]
   branch = "master"
@@ -252,6 +292,8 @@
     "gbytes",
     "gexec",
     "ghttp",
+    "gstruct",
+    "gstruct/errors",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -263,13 +305,19 @@
     "matchers/support/goraph/util",
     "types"
   ]
-  revision = "a9c79f175573664afefe4fe0f3827c66263abcbb"
+  revision = "cc102abc031d83b2c8294f7a0532a459abd63b1a"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
   packages = ["."]
   revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
   version = "v1.0.0-rc1"
+
+[[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   branch = "master"
@@ -286,8 +334,8 @@
 [[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
-  revision = "f006c2ac4710855cf0f916dd6b77acf6b048dc6e"
-  version = "v1.0.3"
+  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
+  version = "v1.0.5"
 
 [[projects]]
   branch = "master"
@@ -316,7 +364,7 @@
     "ssh",
     "ssh/terminal"
   ]
-  revision = "432090b8f568c018896cd8a0fb0345872bbac6ce"
+  revision = "4ec37c66abab2c7e02ae775328b2ff001c3f025a"
 
 [[projects]]
   branch = "master"
@@ -327,7 +375,7 @@
     "html/charset",
     "websocket"
   ]
-  revision = "cbe0f9307d0156177f9dd5dc85da1a31abc5f2fb"
+  revision = "d11bb6cd8e3c4e60239c9cb20ef68586d74500d0"
 
 [[projects]]
   branch = "master"
@@ -336,7 +384,7 @@
     "unix",
     "windows"
   ]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  revision = "7db1c3b1a98089d0071c84f646ff5c96aad43682"
 
 [[projects]]
   branch = "master"
@@ -353,6 +401,8 @@
     "encoding/traditionalchinese",
     "encoding/unicode",
     "internal/gen",
+    "internal/language",
+    "internal/language/compact",
     "internal/tag",
     "internal/utf8internal",
     "language",
@@ -360,7 +410,7 @@
     "transform",
     "unicode/cldr"
   ]
-  revision = "9e2b64d659da1afe07ce1c9c1dfefc09d188f21e"
+  revision = "7922cc490dd5a7dbaa7fd5d6196b49db59ac042f"
 
 [[projects]]
   name = "gopkg.in/cheggaaa/pb.v1"
@@ -369,15 +419,14 @@
   version = "v1.0.18"
 
 [[projects]]
-  branch = "off_by_one_scanner_error_line"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "fd70c8694ac38cc10ed519e30c6309aa9cb7bbd9"
-  source = "github.com/vitreuz/yaml"
+  revision = ""
+  version = "v2.2.1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9f05711ab6131f5e0af88c22ffe6dbb94064b5ae3e2072c53508f383a2605079"
+  inputs-digest = "d6c2bdc8333921020f8d9866712896219e783b1507723b2b0e81d6a6e84a503e"
   solver-name = "gps-cdcl"
   solver-version = 1

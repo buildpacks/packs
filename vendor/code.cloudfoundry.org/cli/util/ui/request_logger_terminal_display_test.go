@@ -126,7 +126,7 @@ Origin: wss://doppler.bosh-lite.com:443`
 
 		Context("when provided malformed JSON", func() {
 			It("displays the raw body", func() {
-				raw := `[{"data":1, "banana": 2}]`
+				raw := `[{"data":1, "banana": 2}`
 				err := display.DisplayJSONBody([]byte(raw))
 				Expect(err).ToNot(HaveOccurred())
 
@@ -213,6 +213,30 @@ Origin: wss://doppler.bosh-lite.com:443`
 			Expect(display.Stop()).NotTo(HaveOccurred())
 			Eventually(c).Should(Receive())
 			Expect(display.Stop()).NotTo(HaveOccurred())
+		})
+	})
+
+	Describe("UI", func() {
+		Describe("RequestLoggerTerminalDisplay", func() {
+			BeforeEach(func() {
+				Expect(display.Stop()).ToNot(HaveOccurred())
+			})
+
+			It("returns a RequestLoggerTerminalDisplay with the consistent display mutex", func() {
+				logger1 := testUI.RequestLoggerTerminalDisplay()
+				logger2 := testUI.RequestLoggerTerminalDisplay()
+
+				c := make(chan bool)
+				err := logger1.Start()
+				Expect(err).ToNot(HaveOccurred())
+				go func() {
+					Expect(logger2.Start()).ToNot(HaveOccurred())
+					c <- true
+				}()
+				Consistently(c).ShouldNot(Receive())
+				Expect(logger1.Stop()).ToNot(HaveOccurred())
+				Eventually(c).Should(Receive())
+			})
 		})
 	})
 })

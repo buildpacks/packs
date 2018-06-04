@@ -3,11 +3,10 @@ package v3action
 import (
 	"code.cloudfoundry.org/cli/actor/actionerror"
 	"code.cloudfoundry.org/cli/api/cloudcontroller/ccv3"
-	"code.cloudfoundry.org/cli/types"
 )
 
 // EnvironmentVariableGroups represents all environment variables for application
-type EnvironmentVariableGroups ccv3.EnvironmentVariableGroups
+type EnvironmentVariableGroups ccv3.Environment
 
 // EnvironmentVariablePair represents an environment variable and its value
 // on an application
@@ -24,7 +23,7 @@ func (actor *Actor) GetEnvironmentVariablesByApplicationNameAndSpace(appName str
 		return EnvironmentVariableGroups{}, warnings, appErr
 	}
 
-	ccEnvGroups, v3Warnings, apiErr := actor.CloudControllerClient.GetApplicationEnvironmentVariables(app.GUID)
+	ccEnvGroups, v3Warnings, apiErr := actor.CloudControllerClient.GetApplicationEnvironment(app.GUID)
 	warnings = append(warnings, v3Warnings...)
 	return EnvironmentVariableGroups(ccEnvGroups), warnings, apiErr
 }
@@ -38,7 +37,11 @@ func (actor *Actor) SetEnvironmentVariableByApplicationNameAndSpace(appName stri
 		return warnings, err
 	}
 
-	_, v3Warnings, apiErr := actor.CloudControllerClient.PatchApplicationUserProvidedEnvironmentVariables(app.GUID, ccv3.EnvironmentVariables{Variables: map[string]types.FilteredString{envPair.Key: {Value: envPair.Value, IsSet: true}}})
+	_, v3Warnings, apiErr := actor.CloudControllerClient.UpdateApplicationEnvironmentVariables(
+		app.GUID,
+		ccv3.EnvironmentVariables{
+			envPair.Key: {Value: envPair.Value, IsSet: true},
+		})
 	warnings = append(warnings, v3Warnings...)
 	return warnings, apiErr
 }
@@ -51,17 +54,21 @@ func (actor *Actor) UnsetEnvironmentVariableByApplicationNameAndSpace(appName st
 	if appErr != nil {
 		return warnings, appErr
 	}
-	envGroups, getWarnings, getErr := actor.CloudControllerClient.GetApplicationEnvironmentVariables(app.GUID)
+	envGroups, getWarnings, getErr := actor.CloudControllerClient.GetApplicationEnvironment(app.GUID)
 	warnings = append(warnings, getWarnings...)
 	if getErr != nil {
 		return warnings, getErr
 	}
 
-	if _, ok := envGroups.UserProvided[environmentVariableName]; !ok {
+	if _, ok := envGroups.EnvironmentVariables[environmentVariableName]; !ok {
 		return warnings, actionerror.EnvironmentVariableNotSetError{EnvironmentVariableName: environmentVariableName}
 	}
 
-	_, patchWarnings, patchErr := actor.CloudControllerClient.PatchApplicationUserProvidedEnvironmentVariables(app.GUID, ccv3.EnvironmentVariables{Variables: map[string]types.FilteredString{environmentVariableName: {Value: "", IsSet: false}}})
+	_, patchWarnings, patchErr := actor.CloudControllerClient.UpdateApplicationEnvironmentVariables(
+		app.GUID,
+		ccv3.EnvironmentVariables{
+			environmentVariableName: {Value: "", IsSet: false},
+		})
 	warnings = append(warnings, patchWarnings...)
 	return warnings, patchErr
 }

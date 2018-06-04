@@ -2,6 +2,7 @@
 package v2actionfakes
 
 import (
+	"io"
 	"sync"
 
 	"code.cloudfoundry.org/cli/actor/v2action"
@@ -40,11 +41,12 @@ type FakeCloudControllerClient struct {
 		result2 ccv2.Warnings
 		result3 error
 	}
-	CreateServiceBindingStub        func(appGUID string, serviceBindingGUID string, parameters map[string]interface{}) (ccv2.ServiceBinding, ccv2.Warnings, error)
+	CreateServiceBindingStub        func(appGUID string, serviceBindingGUID string, bindingName string, parameters map[string]interface{}) (ccv2.ServiceBinding, ccv2.Warnings, error)
 	createServiceBindingMutex       sync.RWMutex
 	createServiceBindingArgsForCall []struct {
 		appGUID            string
 		serviceBindingGUID string
+		bindingName        string
 		parameters         map[string]interface{}
 	}
 	createServiceBindingReturns struct {
@@ -864,6 +866,23 @@ type FakeCloudControllerClient struct {
 		result2 ccv2.Warnings
 		result3 error
 	}
+	UploadDropletStub        func(appGUID string, droplet io.Reader, dropletLength int64) (ccv2.Job, ccv2.Warnings, error)
+	uploadDropletMutex       sync.RWMutex
+	uploadDropletArgsForCall []struct {
+		appGUID       string
+		droplet       io.Reader
+		dropletLength int64
+	}
+	uploadDropletReturns struct {
+		result1 ccv2.Job
+		result2 ccv2.Warnings
+		result3 error
+	}
+	uploadDropletReturnsOnCall map[int]struct {
+		result1 ccv2.Job
+		result2 ccv2.Warnings
+		result3 error
+	}
 	APIStub        func() string
 	aPIMutex       sync.RWMutex
 	aPIArgsForCall []struct{}
@@ -1040,18 +1059,19 @@ func (fake *FakeCloudControllerClient) CreateRouteReturnsOnCall(i int, result1 c
 	}{result1, result2, result3}
 }
 
-func (fake *FakeCloudControllerClient) CreateServiceBinding(appGUID string, serviceBindingGUID string, parameters map[string]interface{}) (ccv2.ServiceBinding, ccv2.Warnings, error) {
+func (fake *FakeCloudControllerClient) CreateServiceBinding(appGUID string, serviceBindingGUID string, bindingName string, parameters map[string]interface{}) (ccv2.ServiceBinding, ccv2.Warnings, error) {
 	fake.createServiceBindingMutex.Lock()
 	ret, specificReturn := fake.createServiceBindingReturnsOnCall[len(fake.createServiceBindingArgsForCall)]
 	fake.createServiceBindingArgsForCall = append(fake.createServiceBindingArgsForCall, struct {
 		appGUID            string
 		serviceBindingGUID string
+		bindingName        string
 		parameters         map[string]interface{}
-	}{appGUID, serviceBindingGUID, parameters})
-	fake.recordInvocation("CreateServiceBinding", []interface{}{appGUID, serviceBindingGUID, parameters})
+	}{appGUID, serviceBindingGUID, bindingName, parameters})
+	fake.recordInvocation("CreateServiceBinding", []interface{}{appGUID, serviceBindingGUID, bindingName, parameters})
 	fake.createServiceBindingMutex.Unlock()
 	if fake.CreateServiceBindingStub != nil {
-		return fake.CreateServiceBindingStub(appGUID, serviceBindingGUID, parameters)
+		return fake.CreateServiceBindingStub(appGUID, serviceBindingGUID, bindingName, parameters)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2, ret.result3
@@ -1065,10 +1085,10 @@ func (fake *FakeCloudControllerClient) CreateServiceBindingCallCount() int {
 	return len(fake.createServiceBindingArgsForCall)
 }
 
-func (fake *FakeCloudControllerClient) CreateServiceBindingArgsForCall(i int) (string, string, map[string]interface{}) {
+func (fake *FakeCloudControllerClient) CreateServiceBindingArgsForCall(i int) (string, string, string, map[string]interface{}) {
 	fake.createServiceBindingMutex.RLock()
 	defer fake.createServiceBindingMutex.RUnlock()
-	return fake.createServiceBindingArgsForCall[i].appGUID, fake.createServiceBindingArgsForCall[i].serviceBindingGUID, fake.createServiceBindingArgsForCall[i].parameters
+	return fake.createServiceBindingArgsForCall[i].appGUID, fake.createServiceBindingArgsForCall[i].serviceBindingGUID, fake.createServiceBindingArgsForCall[i].bindingName, fake.createServiceBindingArgsForCall[i].parameters
 }
 
 func (fake *FakeCloudControllerClient) CreateServiceBindingReturns(result1 ccv2.ServiceBinding, result2 ccv2.Warnings, result3 error) {
@@ -4004,6 +4024,62 @@ func (fake *FakeCloudControllerClient) UploadApplicationPackageReturnsOnCall(i i
 	}{result1, result2, result3}
 }
 
+func (fake *FakeCloudControllerClient) UploadDroplet(appGUID string, droplet io.Reader, dropletLength int64) (ccv2.Job, ccv2.Warnings, error) {
+	fake.uploadDropletMutex.Lock()
+	ret, specificReturn := fake.uploadDropletReturnsOnCall[len(fake.uploadDropletArgsForCall)]
+	fake.uploadDropletArgsForCall = append(fake.uploadDropletArgsForCall, struct {
+		appGUID       string
+		droplet       io.Reader
+		dropletLength int64
+	}{appGUID, droplet, dropletLength})
+	fake.recordInvocation("UploadDroplet", []interface{}{appGUID, droplet, dropletLength})
+	fake.uploadDropletMutex.Unlock()
+	if fake.UploadDropletStub != nil {
+		return fake.UploadDropletStub(appGUID, droplet, dropletLength)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fake.uploadDropletReturns.result1, fake.uploadDropletReturns.result2, fake.uploadDropletReturns.result3
+}
+
+func (fake *FakeCloudControllerClient) UploadDropletCallCount() int {
+	fake.uploadDropletMutex.RLock()
+	defer fake.uploadDropletMutex.RUnlock()
+	return len(fake.uploadDropletArgsForCall)
+}
+
+func (fake *FakeCloudControllerClient) UploadDropletArgsForCall(i int) (string, io.Reader, int64) {
+	fake.uploadDropletMutex.RLock()
+	defer fake.uploadDropletMutex.RUnlock()
+	return fake.uploadDropletArgsForCall[i].appGUID, fake.uploadDropletArgsForCall[i].droplet, fake.uploadDropletArgsForCall[i].dropletLength
+}
+
+func (fake *FakeCloudControllerClient) UploadDropletReturns(result1 ccv2.Job, result2 ccv2.Warnings, result3 error) {
+	fake.UploadDropletStub = nil
+	fake.uploadDropletReturns = struct {
+		result1 ccv2.Job
+		result2 ccv2.Warnings
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeCloudControllerClient) UploadDropletReturnsOnCall(i int, result1 ccv2.Job, result2 ccv2.Warnings, result3 error) {
+	fake.UploadDropletStub = nil
+	if fake.uploadDropletReturnsOnCall == nil {
+		fake.uploadDropletReturnsOnCall = make(map[int]struct {
+			result1 ccv2.Job
+			result2 ccv2.Warnings
+			result3 error
+		})
+	}
+	fake.uploadDropletReturnsOnCall[i] = struct {
+		result1 ccv2.Job
+		result2 ccv2.Warnings
+		result3 error
+	}{result1, result2, result3}
+}
+
 func (fake *FakeCloudControllerClient) API() string {
 	fake.aPIMutex.Lock()
 	ret, specificReturn := fake.aPIReturnsOnCall[len(fake.aPIArgsForCall)]
@@ -4401,6 +4477,8 @@ func (fake *FakeCloudControllerClient) Invocations() map[string][][]interface{} 
 	defer fake.updateSecurityGroupStagingSpaceMutex.RUnlock()
 	fake.uploadApplicationPackageMutex.RLock()
 	defer fake.uploadApplicationPackageMutex.RUnlock()
+	fake.uploadDropletMutex.RLock()
+	defer fake.uploadDropletMutex.RUnlock()
 	fake.aPIMutex.RLock()
 	defer fake.aPIMutex.RUnlock()
 	fake.aPIVersionMutex.RLock()

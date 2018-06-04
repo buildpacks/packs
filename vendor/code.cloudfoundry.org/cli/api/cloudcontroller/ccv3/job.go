@@ -8,32 +8,39 @@ import (
 	"code.cloudfoundry.org/cli/api/cloudcontroller/ccv3/constant"
 )
 
+// ErrorDetails provides information regarding a job's error.
 type ErrorDetails struct {
+	// Code is a numeric code for this error.
+	Code int `json:"code"`
+	// Detail is a verbose description of the error.
 	Detail string `json:"detail"`
-	Title  string `json:"title"`
-	Code   int    `json:"code"`
+	// Title is a short description of the error.
+	Title string `json:"title"`
 }
 
 // Job represents a Cloud Controller Job.
 type Job struct {
-	Errors []ErrorDetails    `json:"errors"`
-	GUID   string            `json:"guid"`
-	State  constant.JobState `json:"state"`
+	// Errors is a list of errors that occurred while processing the job.
+	Errors []ErrorDetails `json:"errors"`
+	// GUID is a unique identifier for the job.
+	GUID string `json:"guid"`
+	// State is the state of the job.
+	State constant.JobState `json:"state"`
 }
 
-// Complete returns true when the job has completed successfully.
-func (job Job) Complete() bool {
-	return job.State == constant.JobComplete
-}
-
-// Failed returns true when the job has completed with an error/failure.
-func (job Job) Failed() bool {
+// HasFailed returns true when the job has completed with an error/failure.
+func (job Job) HasFailed() bool {
 	return job.State == constant.JobFailed
 }
 
+// IsComplete returns true when the job has completed successfully.
+func (job Job) IsComplete() bool {
+	return job.State == constant.JobComplete
+}
+
 // GetJob returns a job for the provided GUID.
-func (client *Client) GetJob(jobURL string) (Job, Warnings, error) {
-	request, err := client.newHTTPRequest(requestOptions{URL: jobURL})
+func (client *Client) GetJob(jobURL JobURL) (Job, Warnings, error) {
+	request, err := client.newHTTPRequest(requestOptions{URL: string(jobURL)})
 	if err != nil {
 		return Job{}, nil, err
 	}
@@ -50,7 +57,7 @@ func (client *Client) GetJob(jobURL string) (Job, Warnings, error) {
 // PollJob will keep polling the given job until the job has terminated, an
 // error is encountered, or config.OverallPollingTimeout is reached. In the
 // last case, a JobTimeoutError is returned.
-func (client *Client) PollJob(jobURL string) (Warnings, error) {
+func (client *Client) PollJob(jobURL JobURL) (Warnings, error) {
 	var (
 		err         error
 		warnings    Warnings
@@ -66,14 +73,14 @@ func (client *Client) PollJob(jobURL string) (Warnings, error) {
 			return allWarnings, err
 		}
 
-		if job.Failed() {
+		if job.HasFailed() {
 			return allWarnings, ccerror.JobFailedError{
 				JobGUID: job.GUID,
 				Message: job.Errors[0].Detail,
 			}
 		}
 
-		if job.Complete() {
+		if job.IsComplete() {
 			return allWarnings, nil
 		}
 

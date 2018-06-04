@@ -9,42 +9,35 @@ import (
 	"code.cloudfoundry.org/cli/types"
 )
 
-// EnvironmentVariableGroups represents all environment variables on an application
-type EnvironmentVariableGroups struct {
-	SystemProvided      map[string]interface{} `json:"system_env_json"`
-	ApplicationProvided map[string]interface{} `json:"application_env_json"`
-	UserProvided        map[string]interface{} `json:"environment_variables"`
-	RunningGroup        map[string]interface{} `json:"running_env_json"`
-	StagingGroup        map[string]interface{} `json:"staging_env_json"`
-}
+// EnvironmentVariables represents the environment variables that can be set on
+// an application by the user.
+type EnvironmentVariables map[string]types.FilteredString
 
-// EnvironmentVariables represents the environment variables that can be set on application by user
-type EnvironmentVariables struct {
-	Variables map[string]types.FilteredString `json:"var"`
-}
-
-// GetApplicationEnvironmentVariables fetches all the environment variables on
-// an application by groups.
-func (client *Client) GetApplicationEnvironmentVariables(appGUID string) (EnvironmentVariableGroups, Warnings, error) {
-	request, err := client.newHTTPRequest(requestOptions{
-		URIParams:   internal.Params{"app_guid": appGUID},
-		RequestName: internal.GetApplicationEnvironmentVariables,
-	})
-	if err != nil {
-		return EnvironmentVariableGroups{}, nil, err
+func (variables EnvironmentVariables) MarshalJSON() ([]byte, error) {
+	ccEnvVars := struct {
+		Var map[string]types.FilteredString `json:"var"`
+	}{
+		Var: variables,
 	}
 
-	var responseEnvVars EnvironmentVariableGroups
-	response := cloudcontroller.Response{
-		Result: &responseEnvVars,
-	}
-	err = client.connection.Make(request, &response)
-	return responseEnvVars, response.Warnings, err
+	return json.Marshal(ccEnvVars)
 }
 
-// PatchApplicationUserProvidedEnvironmentVariables updates the user provided environment
-// variables on an applicaiton. A restart is required for changes to take effect.
-func (client *Client) PatchApplicationUserProvidedEnvironmentVariables(appGUID string, envVars EnvironmentVariables) (EnvironmentVariables, Warnings, error) {
+func (variables *EnvironmentVariables) UnmarshalJSON(data []byte) error {
+	var ccEnvVars struct {
+		Var map[string]types.FilteredString `json:"var"`
+	}
+
+	err := cloudcontroller.DecodeJSON(data, &ccEnvVars)
+	*variables = EnvironmentVariables(ccEnvVars.Var)
+
+	return err
+}
+
+// UpdateApplicationEnvironmentVariables adds/updates the user provided
+// environment variables on an applicaiton. A restart is required for changes
+// to take effect.
+func (client *Client) UpdateApplicationEnvironmentVariables(appGUID string, envVars EnvironmentVariables) (EnvironmentVariables, Warnings, error) {
 	bodyBytes, err := json.Marshal(envVars)
 	if err != nil {
 		return EnvironmentVariables{}, nil, err
@@ -52,7 +45,7 @@ func (client *Client) PatchApplicationUserProvidedEnvironmentVariables(appGUID s
 
 	request, err := client.newHTTPRequest(requestOptions{
 		URIParams:   internal.Params{"app_guid": appGUID},
-		RequestName: internal.PatchApplicationUserProvidedEnvironmentVariablesRequest,
+		RequestName: internal.PatchApplicationEnvironmentVariablesRequest,
 		Body:        bytes.NewReader(bodyBytes),
 	})
 	if err != nil {

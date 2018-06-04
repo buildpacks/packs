@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sync"
@@ -57,16 +55,8 @@ func (display *RequestLoggerTerminalDisplay) DisplayJSONBody(body []byte) error 
 		return nil
 	}
 
-	buff := new(bytes.Buffer)
-	encoder := json.NewEncoder(buff)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
-	err = encoder.Encode(sanitized)
-	if err != nil {
-		fmt.Fprintf(display.ui.Out, "%s\n", string(body))
-	}
+	fmt.Fprintf(display.ui.Out, "%s\n", string(sanitized))
 
-	fmt.Fprintf(display.ui.Out, "%s\n", buff.String())
 	return nil
 }
 
@@ -104,4 +94,11 @@ func (display *RequestLoggerTerminalDisplay) Stop() error {
 	fmt.Fprintf(display.ui.Out, "\n")
 	display.lock.Unlock()
 	return nil
+}
+
+// RequestLoggerTerminalDisplay returns a RequestLoggerTerminalDisplay that
+// cannot overwrite another RequestLoggerTerminalDisplay or the current
+// display.
+func (ui *UI) RequestLoggerTerminalDisplay() *RequestLoggerTerminalDisplay {
+	return newRequestLoggerTerminalDisplay(ui, ui.terminalLock)
 }

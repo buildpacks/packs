@@ -16,6 +16,8 @@ type Config interface {
 	APIVersion() string
 	BinaryName() string
 	BinaryVersion() string
+	CFPassword() string
+	CFUsername() string
 	ColorEnabled() configv3.ColorSetting
 	CurrentUser() (configv3.User, error)
 	DialTimeout() time.Duration
@@ -43,8 +45,8 @@ type Config interface {
 	SetTargetInformation(api string, apiVersion string, auth string, minCLIVersion string, doppler string, routing string, skipSSLValidation bool)
 	SetTokenInformation(accessToken string, refreshToken string, sshOAuthClient string)
 	SetUAAClientCredentials(client string, clientSecret string)
-	SetUAAGrantType(uaaGrantType string)
 	SetUAAEndpoint(uaaEndpoint string)
+	SetUAAGrantType(uaaGrantType string)
 	SkipSSLValidation() bool
 	SSHOAuthClient() string
 	StagingTimeout() time.Duration
@@ -52,12 +54,13 @@ type Config interface {
 	Target() string
 	TargetedOrganization() configv3.Organization
 	TargetedSpace() configv3.Space
+	UAADisableKeepAlives() bool
+	UAAGrantType() string
 	UAAOAuthClient() string
 	UAAOAuthClientSecret() string
-	UAAGrantType() string
-	UnsetUserInformation()
 	UnsetOrganizationAndSpaceInformation()
 	UnsetSpaceInformation()
+	UnsetUserInformation()
 	Verbose() (bool, []string)
 	WritePluginConfig() error
 }

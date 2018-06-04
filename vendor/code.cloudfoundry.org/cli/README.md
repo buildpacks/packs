@@ -27,6 +27,8 @@ Latest help of each command is [here](https://cli.cloudfoundry.org) (or run `cf 
 Further documentation is at the [docs page for the
 CLI](https://docs.cloudfoundry.org/cf-cli).
 
+**Note**: CF CLI supports as far back as CF Release v251 (CAPI Release: 1.15.0 (APIs 2.69.0 and 3.4.0). See our [wiki](https://github.com/cloudfoundry/cli/wiki/Versioning-Policy#cf-cli-minimum-supported-version) for more information. If you are on an older version of CF Release, we recommend you upgrade to a supported version. 
+
 If you have any questions, ask away on the #cli channel in [our Slack
 community](https://slack.cloudfoundry.org/) and the
 [cf-dev](https://lists.cloudfoundry.org/archives/list/cf-dev@lists.cloudfoundry.org/)
@@ -101,10 +103,12 @@ Follow these download links for [Mac OS X 64 bit](https://packages.cloudfoundry.
 
 ## Known Issues
 
-* In Cygwin and Git Bash on Windows, interactive password prompts (in `cf login`) do not work (see [issue #171](https://github.com/cloudfoundry/cli/issues/171)). Please use alternative commands (`cf api` and `cf auth` to `cf login`) to work around this.
-* API tracing to terminal (using `CF_TRACE=true`, `-v` option or `cf config --trace`) doesn't work well with some CLI plugin commands. Trace to file works fine. On Linux, `CF_TRACE=/dev/stdout` works too. See e.g. [this Diego-Enabler plugin issue](https://github.com/cloudfoundry-incubator/Diego-Enabler/issues/6).
-* .cfignore used in `cf push` must be in UTF8 encoding for CLI to interpret correctly.
-* On Linux, when encountering message "bash: .cf: No such file or directory", ensure that you're using the correct binary or installer for your architecture. See https://askubuntu.com/questions/133389/no-such-file-or-directory-but-the-file-exists
+* In Cygwin and Git Bash on Windows, interactive password prompts (in `cf login`) do not work ([issue #171](https://github.com/cloudfoundry/cli/issues/171)). Please use alternative commands (`cf api` and `cf auth` to `cf login`) to work around this.
+* On Windows, `cf ssh` may not display correctly if the `TERM` is not set. We've found that setting `TERM` to `msys` fixes some of these issues.
+* CF CLI/GoLang do not use OpenSSL. Custom/Self Signed Certificates need to be [installed in specific locations](https://docs.cloudfoundry.org/cf-cli/self-signed.html) in order to `login`/`auth` without `--skip-ssl-validation`.
+* API tracing to terminal (using `CF_TRACE=true`, `-v` option or `cf config --trace`) doesn't work well with some CLI plugin commands. Trace to file works fine. On Linux, `CF_TRACE=/dev/stdout` works too. See [this Diego-Enabler plugin issue](https://github.com/cloudfoundry-attic/Diego-Enabler/issues/6) for more information.
+* .cfignore used in `cf push` must be in UTF-8 encoding for CLI to interpret correctly.
+* On Linux, when encountering message "bash: .cf: No such file or directory", ensure that you're using the [correct binary or installer for your architecture](https://askubuntu.com/questions/133389/no-such-file-or-directory-but-the-file-exists).
 * Using non-refactored commands with verbose mode turned on will display the refresh token in the terminal.
 
 ## Filing Issues & Feature Requests

@@ -29,7 +29,7 @@ func skipSSLValidation() string {
 }
 
 func GetAPI() string {
-	apiURL := os.Getenv("CF_API")
+	apiURL := os.Getenv("CF_INT_API")
 	if apiURL == "" {
 		return "https://api.bosh-lite.com"
 	}
@@ -42,25 +42,33 @@ func GetAPI() string {
 
 func LoginCF() string {
 	username, password := GetCredentials()
-	Eventually(CF("auth", username, password)).Should(Exit(0))
+	env := map[string]string{
+		"CF_USERNAME": username,
+		"CF_PASSWORD": password,
+	}
+	Eventually(CFWithEnv(env, "auth")).Should(Exit(0))
 
 	return username
 }
 
 func LoginCFWithClientCredentials() string {
 	username, password := SkipIfClientCredentialsNotSet()
-	Eventually(CF("auth", username, password, "--client-credentials")).Should(Exit(0))
+	env := map[string]string{
+		"CF_USERNAME": username,
+		"CF_PASSWORD": password,
+	}
+	Eventually(CFWithEnv(env, "auth", "--client-credentials")).Should(Exit(0))
 
 	return username
 }
 
 // GetCredentials returns back the username and the password.
 func GetCredentials() (string, string) {
-	username := os.Getenv("CF_USERNAME")
+	username := os.Getenv("CF_INT_USERNAME")
 	if username == "" {
 		username = "admin"
 	}
-	password := os.Getenv("CF_PASSWORD")
+	password := os.Getenv("CF_INT_PASSWORD")
 	if password == "" {
 		password = "admin"
 	}

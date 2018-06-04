@@ -4,13 +4,12 @@
 
 [[constraint]]
   name = "code.cloudfoundry.org/cli"
-  version = "=6.35.2"
+  version = "=6.37.0"
 
 [[constraint]]
   branch = "master"
   name = "github.com/sclevine/spec"
 
 [[constraint]]
-  branch = "remote-layer"
+  branch = "master"
   name = "github.com/google/go-containerregistry"
-  source = "https://github.com/jonjohnsonjr/go-containerregistry"

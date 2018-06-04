@@ -19,11 +19,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/google/go-containerregistry/ko/build"
-	"github.com/google/go-containerregistry/ko/publish"
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1/daemon"
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/ko/build"
+	"github.com/google/go-containerregistry/pkg/ko/publish"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/daemon"
 )
 
 func publishImages(importpaths []string, lo *LocalOptions) {
@@ -37,17 +36,15 @@ func publishImages(importpaths []string, lo *LocalOptions) {
 			log.Fatalf("error building %q: %v", importpath, err)
 		}
 		var pub publish.Interface
-		if lo.Local {
+		repoName := os.Getenv("KO_DOCKER_REPO")
+		if lo.Local || repoName == publish.LocalDomain {
 			pub = publish.NewDaemon(daemon.WriteOptions{})
 		} else {
-			repoName := os.Getenv("KO_DOCKER_REPO")
 			repo, err := name.NewRepository(repoName, name.WeakValidation)
 			if err != nil {
 				log.Fatalf("the environment variable KO_DOCKER_REPO must be set to a valid docker repository, got %v", err)
 			}
-			pub = publish.NewDefault(repo, http.DefaultTransport, remote.WriteOptions{
-				MountPaths: getMountPaths(),
-			})
+			pub = publish.NewDefault(repo, http.DefaultTransport)
 		}
 		if _, err := pub.Publish(img, importpath); err != nil {
 			log.Fatalf("error publishing %s: %v", importpath, err)

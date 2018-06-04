@@ -19,12 +19,14 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/google/go-containerregistry/authn"
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1/mutate"
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/spf13/cobra"
 )
+
+func init() { Root.AddCommand(NewCmdRebase()) }
 
 func NewCmdRebase() *cobra.Command {
 	var orig, oldBase, newBase, rebased string
@@ -48,17 +50,17 @@ func rebase(orig, oldBase, newBase, rebased string) {
 		log.Fatalln("Must provide --original, --old_base, --new_base and --rebased")
 	}
 
-	origImg, origRef, err := getImage(orig)
+	origImg, _, err := getImage(orig)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	oldBaseImg, oldBaseRef, err := getImage(oldBase)
+	oldBaseImg, _, err := getImage(oldBase)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	newBaseImg, newBaseRef, err := getImage(newBase)
+	newBaseImg, _, err := getImage(newBase)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -83,9 +85,7 @@ func rebase(orig, oldBase, newBase, rebased string) {
 		log.Fatalf("getting creds for %q: %v", rebasedTag, err)
 	}
 
-	if err := remote.Write(rebasedTag, rebasedImg, auth, http.DefaultTransport, remote.WriteOptions{
-		MountPaths: []name.Repository{origRef.Context(), oldBaseRef.Context(), newBaseRef.Context()},
-	}); err != nil {
+	if err := remote.Write(rebasedTag, rebasedImg, auth, http.DefaultTransport, remote.WriteOptions{}); err != nil {
 		log.Fatalf("writing image %q: %v", rebasedTag, err)
 	}
 	fmt.Print(dig.String())

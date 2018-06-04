@@ -27,32 +27,6 @@ type Resource struct {
 	Size int64 `json:"size"`
 }
 
-// UnmarshalJSON helps unmarshal a Cloud Controller Resource response.
-func (r *Resource) UnmarshalJSON(rawJSON []byte) error {
-	var ccResource struct {
-		Filename string `json:"fn,omitempty"`
-		Mode     string `json:"mode,omitempty"`
-		SHA1     string `json:"sha1"`
-		Size     int64  `json:"size"`
-	}
-
-	err := json.Unmarshal(rawJSON, &ccResource)
-	if err != nil {
-		return err
-	}
-
-	r.Filename = ccResource.Filename
-	r.Size = ccResource.Size
-	r.SHA1 = ccResource.SHA1
-	mode, err := strconv.ParseUint(ccResource.Mode, 8, 32)
-	if err != nil {
-		return err
-	}
-
-	r.Mode = os.FileMode(mode)
-	return nil
-}
-
 // MarshalJSON converts a resource into a Cloud Controller Resource.
 func (r Resource) MarshalJSON() ([]byte, error) {
 	var ccResource struct {
@@ -67,6 +41,32 @@ func (r Resource) MarshalJSON() ([]byte, error) {
 	ccResource.SHA1 = r.SHA1
 	ccResource.Mode = strconv.FormatUint(uint64(r.Mode), 8)
 	return json.Marshal(ccResource)
+}
+
+// UnmarshalJSON helps unmarshal a Cloud Controller Resource response.
+func (r *Resource) UnmarshalJSON(data []byte) error {
+	var ccResource struct {
+		Filename string `json:"fn,omitempty"`
+		Mode     string `json:"mode,omitempty"`
+		SHA1     string `json:"sha1"`
+		Size     int64  `json:"size"`
+	}
+
+	err := cloudcontroller.DecodeJSON(data, &ccResource)
+	if err != nil {
+		return err
+	}
+
+	r.Filename = ccResource.Filename
+	r.Size = ccResource.Size
+	r.SHA1 = ccResource.SHA1
+	mode, err := strconv.ParseUint(ccResource.Mode, 8, 32)
+	if err != nil {
+		return err
+	}
+
+	r.Mode = os.FileMode(mode)
+	return nil
 }
 
 // UpdateResourceMatch returns the resources that exist on the cloud foundry instance

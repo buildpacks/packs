@@ -1,8 +1,23 @@
 package pushaction
 
-import "code.cloudfoundry.org/cli/util/manifest"
+import (
+	"code.cloudfoundry.org/cli/util/manifest"
+	"github.com/cloudfoundry/bosh-cli/director/template"
+)
 
-func (*Actor) ReadManifest(pathToManifest string) ([]manifest.Application, error) {
+func (actor *Actor) ReadManifest(pathToManifest string, pathsToVarsFiles []string, vars []template.VarKV) ([]manifest.Application, Warnings, error) {
 	// Cover method to make testing easier
-	return manifest.ReadAndMergeManifests(pathToManifest)
+	apps, err := manifest.ReadAndInterpolateManifest(pathToManifest, pathsToVarsFiles, vars)
+	warnings := actor.checkForBuildpack(apps)
+	return apps, warnings, err
+}
+
+func (*Actor) checkForBuildpack(manifestApp []manifest.Application) Warnings {
+	// for _, app := range manifestApp {
+	// 	if app.Buildpack.IsSet {
+	// 		return Warnings{"Deprecation warning: Use of buildpack attribute in manifest is deprecated in favor of 'buildpacks'. Please see http://docs.cloudfoundry.org/devguide/deploy-apps/manifest.html#deprecated for alternatives and other app manifest deprecations. This feature will be removed in the future."}
+	// 	}
+	// }
+
+	return nil
 }

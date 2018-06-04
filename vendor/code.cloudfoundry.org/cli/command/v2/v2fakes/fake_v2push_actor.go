@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/cli/actor/pushaction"
 	"code.cloudfoundry.org/cli/command/v2"
 	"code.cloudfoundry.org/cli/util/manifest"
+	"github.com/cloudfoundry/bosh-cli/director/template"
 )
 
 type FakeV2PushActor struct {
@@ -27,6 +28,24 @@ type FakeV2PushActor struct {
 		result2 <-chan pushaction.Event
 		result3 <-chan pushaction.Warnings
 		result4 <-chan error
+	}
+	CloudControllerV2APIVersionStub        func() string
+	cloudControllerV2APIVersionMutex       sync.RWMutex
+	cloudControllerV2APIVersionArgsForCall []struct{}
+	cloudControllerV2APIVersionReturns     struct {
+		result1 string
+	}
+	cloudControllerV2APIVersionReturnsOnCall map[int]struct {
+		result1 string
+	}
+	CloudControllerV3APIVersionStub        func() string
+	cloudControllerV3APIVersionMutex       sync.RWMutex
+	cloudControllerV3APIVersionArgsForCall []struct{}
+	cloudControllerV3APIVersionReturns     struct {
+		result1 string
+	}
+	cloudControllerV3APIVersionReturnsOnCall map[int]struct {
+		result1 string
 	}
 	ConvertToApplicationConfigsStub        func(orgGUID string, spaceGUID string, noStart bool, apps []manifest.Application) ([]pushaction.ApplicationConfig, pushaction.Warnings, error)
 	convertToApplicationConfigsMutex       sync.RWMutex
@@ -60,18 +79,22 @@ type FakeV2PushActor struct {
 		result1 []manifest.Application
 		result2 error
 	}
-	ReadManifestStub        func(pathToManifest string) ([]manifest.Application, error)
+	ReadManifestStub        func(pathToManifest string, pathsToVarsFiles []string, vars []template.VarKV) ([]manifest.Application, pushaction.Warnings, error)
 	readManifestMutex       sync.RWMutex
 	readManifestArgsForCall []struct {
-		pathToManifest string
+		pathToManifest   string
+		pathsToVarsFiles []string
+		vars             []template.VarKV
 	}
 	readManifestReturns struct {
 		result1 []manifest.Application
-		result2 error
+		result2 pushaction.Warnings
+		result3 error
 	}
 	readManifestReturnsOnCall map[int]struct {
 		result1 []manifest.Application
-		result2 error
+		result2 pushaction.Warnings
+		result3 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -133,6 +156,86 @@ func (fake *FakeV2PushActor) ApplyReturnsOnCall(i int, result1 <-chan pushaction
 		result3 <-chan pushaction.Warnings
 		result4 <-chan error
 	}{result1, result2, result3, result4}
+}
+
+func (fake *FakeV2PushActor) CloudControllerV2APIVersion() string {
+	fake.cloudControllerV2APIVersionMutex.Lock()
+	ret, specificReturn := fake.cloudControllerV2APIVersionReturnsOnCall[len(fake.cloudControllerV2APIVersionArgsForCall)]
+	fake.cloudControllerV2APIVersionArgsForCall = append(fake.cloudControllerV2APIVersionArgsForCall, struct{}{})
+	fake.recordInvocation("CloudControllerV2APIVersion", []interface{}{})
+	fake.cloudControllerV2APIVersionMutex.Unlock()
+	if fake.CloudControllerV2APIVersionStub != nil {
+		return fake.CloudControllerV2APIVersionStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.cloudControllerV2APIVersionReturns.result1
+}
+
+func (fake *FakeV2PushActor) CloudControllerV2APIVersionCallCount() int {
+	fake.cloudControllerV2APIVersionMutex.RLock()
+	defer fake.cloudControllerV2APIVersionMutex.RUnlock()
+	return len(fake.cloudControllerV2APIVersionArgsForCall)
+}
+
+func (fake *FakeV2PushActor) CloudControllerV2APIVersionReturns(result1 string) {
+	fake.CloudControllerV2APIVersionStub = nil
+	fake.cloudControllerV2APIVersionReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeV2PushActor) CloudControllerV2APIVersionReturnsOnCall(i int, result1 string) {
+	fake.CloudControllerV2APIVersionStub = nil
+	if fake.cloudControllerV2APIVersionReturnsOnCall == nil {
+		fake.cloudControllerV2APIVersionReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.cloudControllerV2APIVersionReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeV2PushActor) CloudControllerV3APIVersion() string {
+	fake.cloudControllerV3APIVersionMutex.Lock()
+	ret, specificReturn := fake.cloudControllerV3APIVersionReturnsOnCall[len(fake.cloudControllerV3APIVersionArgsForCall)]
+	fake.cloudControllerV3APIVersionArgsForCall = append(fake.cloudControllerV3APIVersionArgsForCall, struct{}{})
+	fake.recordInvocation("CloudControllerV3APIVersion", []interface{}{})
+	fake.cloudControllerV3APIVersionMutex.Unlock()
+	if fake.CloudControllerV3APIVersionStub != nil {
+		return fake.CloudControllerV3APIVersionStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.cloudControllerV3APIVersionReturns.result1
+}
+
+func (fake *FakeV2PushActor) CloudControllerV3APIVersionCallCount() int {
+	fake.cloudControllerV3APIVersionMutex.RLock()
+	defer fake.cloudControllerV3APIVersionMutex.RUnlock()
+	return len(fake.cloudControllerV3APIVersionArgsForCall)
+}
+
+func (fake *FakeV2PushActor) CloudControllerV3APIVersionReturns(result1 string) {
+	fake.CloudControllerV3APIVersionStub = nil
+	fake.cloudControllerV3APIVersionReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeV2PushActor) CloudControllerV3APIVersionReturnsOnCall(i int, result1 string) {
+	fake.CloudControllerV3APIVersionStub = nil
+	if fake.cloudControllerV3APIVersionReturnsOnCall == nil {
+		fake.cloudControllerV3APIVersionReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.cloudControllerV3APIVersionReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
 }
 
 func (fake *FakeV2PushActor) ConvertToApplicationConfigs(orgGUID string, spaceGUID string, noStart bool, apps []manifest.Application) ([]pushaction.ApplicationConfig, pushaction.Warnings, error) {
@@ -254,21 +357,33 @@ func (fake *FakeV2PushActor) MergeAndValidateSettingsAndManifestsReturnsOnCall(i
 	}{result1, result2}
 }
 
-func (fake *FakeV2PushActor) ReadManifest(pathToManifest string) ([]manifest.Application, error) {
+func (fake *FakeV2PushActor) ReadManifest(pathToManifest string, pathsToVarsFiles []string, vars []template.VarKV) ([]manifest.Application, pushaction.Warnings, error) {
+	var pathsToVarsFilesCopy []string
+	if pathsToVarsFiles != nil {
+		pathsToVarsFilesCopy = make([]string, len(pathsToVarsFiles))
+		copy(pathsToVarsFilesCopy, pathsToVarsFiles)
+	}
+	var varsCopy []template.VarKV
+	if vars != nil {
+		varsCopy = make([]template.VarKV, len(vars))
+		copy(varsCopy, vars)
+	}
 	fake.readManifestMutex.Lock()
 	ret, specificReturn := fake.readManifestReturnsOnCall[len(fake.readManifestArgsForCall)]
 	fake.readManifestArgsForCall = append(fake.readManifestArgsForCall, struct {
-		pathToManifest string
-	}{pathToManifest})
-	fake.recordInvocation("ReadManifest", []interface{}{pathToManifest})
+		pathToManifest   string
+		pathsToVarsFiles []string
+		vars             []template.VarKV
+	}{pathToManifest, pathsToVarsFilesCopy, varsCopy})
+	fake.recordInvocation("ReadManifest", []interface{}{pathToManifest, pathsToVarsFilesCopy, varsCopy})
 	fake.readManifestMutex.Unlock()
 	if fake.ReadManifestStub != nil {
-		return fake.ReadManifestStub(pathToManifest)
+		return fake.ReadManifestStub(pathToManifest, pathsToVarsFiles, vars)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1, ret.result2, ret.result3
 	}
-	return fake.readManifestReturns.result1, fake.readManifestReturns.result2
+	return fake.readManifestReturns.result1, fake.readManifestReturns.result2, fake.readManifestReturns.result3
 }
 
 func (fake *FakeV2PushActor) ReadManifestCallCount() int {
@@ -277,32 +392,35 @@ func (fake *FakeV2PushActor) ReadManifestCallCount() int {
 	return len(fake.readManifestArgsForCall)
 }
 
-func (fake *FakeV2PushActor) ReadManifestArgsForCall(i int) string {
+func (fake *FakeV2PushActor) ReadManifestArgsForCall(i int) (string, []string, []template.VarKV) {
 	fake.readManifestMutex.RLock()
 	defer fake.readManifestMutex.RUnlock()
-	return fake.readManifestArgsForCall[i].pathToManifest
+	return fake.readManifestArgsForCall[i].pathToManifest, fake.readManifestArgsForCall[i].pathsToVarsFiles, fake.readManifestArgsForCall[i].vars
 }
 
-func (fake *FakeV2PushActor) ReadManifestReturns(result1 []manifest.Application, result2 error) {
+func (fake *FakeV2PushActor) ReadManifestReturns(result1 []manifest.Application, result2 pushaction.Warnings, result3 error) {
 	fake.ReadManifestStub = nil
 	fake.readManifestReturns = struct {
 		result1 []manifest.Application
-		result2 error
-	}{result1, result2}
+		result2 pushaction.Warnings
+		result3 error
+	}{result1, result2, result3}
 }
 
-func (fake *FakeV2PushActor) ReadManifestReturnsOnCall(i int, result1 []manifest.Application, result2 error) {
+func (fake *FakeV2PushActor) ReadManifestReturnsOnCall(i int, result1 []manifest.Application, result2 pushaction.Warnings, result3 error) {
 	fake.ReadManifestStub = nil
 	if fake.readManifestReturnsOnCall == nil {
 		fake.readManifestReturnsOnCall = make(map[int]struct {
 			result1 []manifest.Application
-			result2 error
+			result2 pushaction.Warnings
+			result3 error
 		})
 	}
 	fake.readManifestReturnsOnCall[i] = struct {
 		result1 []manifest.Application
-		result2 error
-	}{result1, result2}
+		result2 pushaction.Warnings
+		result3 error
+	}{result1, result2, result3}
 }
 
 func (fake *FakeV2PushActor) Invocations() map[string][][]interface{} {
@@ -310,6 +428,10 @@ func (fake *FakeV2PushActor) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.applyMutex.RLock()
 	defer fake.applyMutex.RUnlock()
+	fake.cloudControllerV2APIVersionMutex.RLock()
+	defer fake.cloudControllerV2APIVersionMutex.RUnlock()
+	fake.cloudControllerV3APIVersionMutex.RLock()
+	defer fake.cloudControllerV3APIVersionMutex.RUnlock()
 	fake.convertToApplicationConfigsMutex.RLock()
 	defer fake.convertToApplicationConfigsMutex.RUnlock()
 	fake.mergeAndValidateSettingsAndManifestsMutex.RLock()

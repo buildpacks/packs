@@ -31,7 +31,7 @@ var _ = Describe("Application Config", func() {
 	BeforeEach(func() {
 		fakeV2Actor = new(pushactionfakes.FakeV2Actor)
 		fakeSharedActor = new(pushactionfakes.FakeSharedActor)
-		actor = NewActor(fakeV2Actor, fakeSharedActor)
+		actor = NewActor(fakeV2Actor, nil, fakeSharedActor)
 
 		fakeRandomWordGenerator = new(pushactionfakes.FakeRandomWordGenerator)
 		actor.WordGenerator = fakeRandomWordGenerator
@@ -1073,6 +1073,46 @@ var _ = Describe("Application Config", func() {
 				Expect(firstConfig.DesiredApplication.DockerImage).To(Equal("some-docker-image-path"))
 
 				Expect(fakeSharedActor.GatherDirectoryResourcesCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when a droplet is provided", func() {
+			BeforeEach(func() {
+				manifestApps[0].DropletPath = filesPath
+			})
+
+			It("sets the droplet on DesiredApplication and does not gather resources", func() {
+				Expect(executeErr).ToNot(HaveOccurred())
+				Expect(firstConfig.DropletPath).To(Equal(filesPath))
+
+				Expect(fakeSharedActor.GatherDirectoryResourcesCallCount()).To(Equal(0))
+			})
+		})
+
+		PContext("when buildpacks (plural) are provided", func() {
+			BeforeEach(func() {
+				// manifestApps[0].Buildpacks = []string{
+				// 	"some-buildpack-1",
+				// 	"some-buildpack-2",
+				// }
+			})
+
+			It("sets the buildpacks on DesiredApplication", func() {
+				Expect(executeErr).ToNot(HaveOccurred())
+				Expect(len(firstConfig.DesiredApplication.Buildpacks)).To(Equal(2))
+				Expect(firstConfig.DesiredApplication.Buildpacks[0]).To(Equal("some-buildpack-1"))
+				Expect(firstConfig.DesiredApplication.Buildpacks[1]).To(Equal("some-buildpack-2"))
+			})
+
+			PContext("when the buildpacks are an empty array", func() {
+				BeforeEach(func() {
+					// manifestApps[0].Buildpacks = []string{}
+				})
+
+				It("set the buildpacks on DesiredApplication to empty array", func() {
+					Expect(executeErr).ToNot(HaveOccurred())
+					Expect(firstConfig.DesiredApplication.Buildpacks).To(Equal([]string{}))
+				})
 			})
 		})
 	})

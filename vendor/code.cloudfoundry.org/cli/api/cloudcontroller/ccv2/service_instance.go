@@ -1,8 +1,6 @@
 package ccv2
 
 import (
-	"encoding/json"
-
 	"code.cloudfoundry.org/cli/api/cloudcontroller"
 	"code.cloudfoundry.org/cli/api/cloudcontroller/ccerror"
 	"code.cloudfoundry.org/cli/api/cloudcontroller/ccv2/constant"
@@ -44,25 +42,9 @@ type ServiceInstance struct {
 	LastOperation LastOperation
 }
 
-type LastOperation struct {
-	// Type is the type of operation that was last performed or currently being
-	// performed on the service instance.
-	Type string
-
-	// State is the status of the last operation or current operation being
-	// performed on the service instance.
-	State string
-
-	// Description is the service broker-provided description of the operation.
-	Description string
-
-	// UpdatedAt is the timestamp that the Cloud Controller last checked the
-	// service instance state from the broker.
-	UpdatedAt string
-
-	// CreatedAt is the timestamp that the Cloud Controller created the service
-	// instance from the broker.
-	CreatedAt string
+// Managed returns true if the Service Instance is a managed service.
+func (serviceInstance ServiceInstance) Managed() bool {
+	return serviceInstance.Type == constant.ServiceInstanceTypeManagedService
 }
 
 // UnmarshalJSON helps unmarshal a Cloud Controller Service Instance response.
@@ -86,7 +68,7 @@ func (serviceInstance *ServiceInstance) UnmarshalJSON(data []byte) error {
 			} `json:"last_operation"`
 		}
 	}
-	err := json.Unmarshal(data, &ccServiceInstance)
+	err := cloudcontroller.DecodeJSON(data, &ccServiceInstance)
 	if err != nil {
 		return err
 	}
@@ -107,11 +89,6 @@ func (serviceInstance *ServiceInstance) UnmarshalJSON(data []byte) error {
 // service.
 func (serviceInstance ServiceInstance) UserProvided() bool {
 	return serviceInstance.Type == constant.ServiceInstanceTypeUserProvidedService
-}
-
-// Managed returns true if the Service Instance is a managed service.
-func (serviceInstance ServiceInstance) Managed() bool {
-	return serviceInstance.Type == constant.ServiceInstanceTypeManagedService
 }
 
 // GetServiceInstance returns the service instance with the given GUID. This
@@ -175,6 +152,33 @@ func (client *Client) GetSpaceServiceInstances(spaceGUID string, includeUserProv
 		RequestName: internal.GetSpaceServiceInstancesRequest,
 		URIParams:   map[string]string{"guid": spaceGUID},
 		Query:       query,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var fullInstancesList []ServiceInstance
+	warnings, err := client.paginate(request, ServiceInstance{}, func(item interface{}) error {
+		if instance, ok := item.(ServiceInstance); ok {
+			fullInstancesList = append(fullInstancesList, instance)
+		} else {
+			return ccerror.UnknownObjectInListError{
+				Expected:   ServiceInstance{},
+				Unexpected: item,
+			}
+		}
+		return nil
+	})
+
+	return fullInstancesList, warnings, err
+}
+
+// GetUserProvidedServiceInstances returns back a list of *user provided* Service Instances based
+// off the provided queries.
+func (client *Client) GetUserProvidedServiceInstances(filters ...Filter) ([]ServiceInstance, Warnings, error) {
+	request, err := client.newHTTPRequest(requestOptions{
+		RequestName: internal.GetUserProvidedServiceInstancesRequest,
+		Query:       ConvertFilterParameters(filters),
 	})
 	if err != nil {
 		return nil, nil, err

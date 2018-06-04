@@ -21,6 +21,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() { Root.AddCommand(NewCmdDigest()) }
+
 func NewCmdDigest() *cobra.Command {
 	return &cobra.Command{
 		Use:   "digest",
@@ -40,5 +42,5 @@ func digest(_ *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	fmt.Print(digest.String())
+	fmt.Println(digest.String())
 }

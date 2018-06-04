@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/cli/actor/pushaction"
 	"code.cloudfoundry.org/cli/actor/v2action"
 	"code.cloudfoundry.org/cli/api/cloudcontroller/ccv2/constant"
+	"code.cloudfoundry.org/cli/api/cloudcontroller/ccversion"
 	"code.cloudfoundry.org/cli/command/commandfakes"
 	"code.cloudfoundry.org/cli/command/flag"
 	"code.cloudfoundry.org/cli/command/translatableerror"
@@ -22,6 +23,7 @@ import (
 	"code.cloudfoundry.org/cli/util/manifest"
 	"code.cloudfoundry.org/cli/util/ui"
 
+	"github.com/cloudfoundry/bosh-cli/director/template"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -78,6 +80,36 @@ var _ = Describe("push Command", func() {
 			executeErr = cmd.Execute(nil)
 		})
 
+		PContext("when the mutiple buildpacks are provided, and the API version is below the mutiple buildpacks minimum", func() {
+			BeforeEach(func() {
+				fakeActor.CloudControllerV3APIVersionReturns("3.1.0")
+				// cmd.Buildpacks = []string{"some-buildpack", "some-other-buildpack"}
+			})
+
+			It("returns a MinimumAPIVersionNotMetError", func() {
+				Expect(executeErr).To(MatchError(translatableerror.MinimumAPIVersionNotMetError{
+					Command:        "Multiple option '-b'",
+					CurrentVersion: "3.1.0",
+					MinimumVersion: ccversion.MinVersionManifestBuildpacksV3,
+				}))
+			})
+		})
+
+		Context("when the droplet flag is passed and the API version is below the minimum", func() {
+			BeforeEach(func() {
+				fakeActor.CloudControllerV2APIVersionReturns("2.6.1")
+				cmd.DropletPath = "some-droplet-path"
+			})
+
+			It("returns a MinimumAPIVersionNotMetError", func() {
+				Expect(executeErr).To(MatchError(translatableerror.MinimumAPIVersionNotMetError{
+					Command:        "Option '--droplet'",
+					CurrentVersion: "2.6.1",
+					MinimumVersion: ccversion.MinVersionDropletUploadV2,
+				}))
+			})
+		})
+
 		Context("when checking target fails", func() {
 			BeforeEach(func() {
 				fakeSharedActor.CheckTargetReturns(actionerror.NotLoggedInError{BinaryName: binaryName})
@@ -113,6 +145,30 @@ var _ = Describe("push Command", func() {
 						},
 					}
 					fakeActor.MergeAndValidateSettingsAndManifestsReturns(appManifests, nil)
+				})
+
+				PContext("when buildpacks (plural) is provided in the manifest and the API version is below the minimum", func() {
+					BeforeEach(func() {
+						appManifests = []manifest.Application{
+							{
+								Name: appName,
+								Path: pwd,
+								// Buildpacks: []string{"ruby-buildpack", "java-buildpack"},
+							},
+						}
+
+						fakeActor.MergeAndValidateSettingsAndManifestsReturns(appManifests, nil)
+						fakeActor.CloudControllerV3APIVersionReturns("3.13.0")
+					})
+
+					It("returns a MinimumAPIVersionNotMetError", func() {
+						Expect(executeErr).To(MatchError(translatableerror.MinimumAPIVersionNotMetError{
+							Command:        "'buildpacks' in manifest",
+							CurrentVersion: "3.13.0",
+							MinimumVersion: ccversion.MinVersionManifestBuildpacksV3,
+						}))
+					})
+
 				})
 
 				Context("when the settings can be converted to a valid config", func() {
@@ -300,7 +356,7 @@ var _ = Describe("push Command", func() {
 									Expect(err).ToNot(HaveOccurred())
 
 									expectedApps = []manifest.Application{{Name: "some-app"}, {Name: "some-other-app"}}
-									fakeActor.ReadManifestReturns(expectedApps, nil)
+									fakeActor.ReadManifestReturns(expectedApps, nil, nil)
 								})
 
 								Context("when reading the manifest file is successful", func() {
@@ -332,7 +388,7 @@ var _ = Describe("push Command", func() {
 									BeforeEach(func() {
 										expectedErr = errors.New("I am an error!!!")
 
-										fakeActor.ReadManifestReturns(nil, expectedErr)
+										fakeActor.ReadManifestReturns(nil, nil, expectedErr)
 									})
 
 									It("returns the error", func() {
@@ -356,6 +412,7 @@ var _ = Describe("push Command", func() {
 										Expect(manifestApps).To(BeNil())
 									})
 								})
+
 							})
 
 							Context("via a manifest.yaml in the current directory", func() {
@@ -413,6 +470,90 @@ var _ = Describe("push Command", func() {
 
 											Expect(fakeActor.ReadManifestCallCount()).To(Equal(1))
 											Expect(fakeActor.ReadManifestArgsForCall(0)).To(Equal(providedPath))
+										})
+
+										Context("variable interpolation", func() {
+											Context("vars file only", func() {
+												Context("when a vars file is also provided", func() {
+													var providedVarsFilePath string
+
+													BeforeEach(func() {
+														providedVarsFilePath = filepath.Join(tmpDir, "vars-file.yml")
+														cmd.VarsFilePaths = []flag.PathWithExistenceCheck{flag.PathWithExistenceCheck(providedVarsFilePath)}
+													})
+
+													It("should read the vars-file.yml file and replace the variables in the manifest.yml file", func() {
+														Expect(executeErr).ToNot(HaveOccurred())
+
+														Expect(testUI.Out).To(Say("Pushing from manifest to org some-org / space some-space as some-user\\.\\.\\."))
+														Expect(testUI.Out).To(Say("Using manifest file %s", regexp.QuoteMeta(providedPath)))
+
+														Expect(fakeActor.ReadManifestCallCount()).To(Equal(1))
+														manifest, varsFiles, vars := fakeActor.ReadManifestArgsForCall(0)
+														Expect(manifest).To(Equal(providedPath))
+														Expect(varsFiles).To(Equal([]string{providedVarsFilePath}))
+														Expect(vars).To(BeEmpty())
+													})
+												})
+
+												Context("when multiple vars files are provided", func() {
+													var (
+														firstProvidedVarsFilePath  string
+														secondProvidedVarsFilePath string
+													)
+
+													BeforeEach(func() {
+														firstProvidedVarsFilePath = filepath.Join(tmpDir, "vars-file-1.yml")
+														firstVarsFile := flag.PathWithExistenceCheck(firstProvidedVarsFilePath)
+
+														secondProvidedVarsFilePath = filepath.Join(tmpDir, "vars-file-2.yml")
+														secondVarsFile := flag.PathWithExistenceCheck(secondProvidedVarsFilePath)
+														cmd.VarsFilePaths = []flag.PathWithExistenceCheck{firstVarsFile, secondVarsFile}
+													})
+
+													It("should read the vars-file.yml file and replace the variables in the manifest.yml file", func() {
+														Expect(executeErr).ToNot(HaveOccurred())
+
+														Expect(testUI.Out).To(Say("Pushing from manifest to org some-org / space some-space as some-user\\.\\.\\."))
+														Expect(testUI.Out).To(Say("Using manifest file %s", regexp.QuoteMeta(providedPath)))
+
+														Expect(fakeActor.ReadManifestCallCount()).To(Equal(1))
+														manifest, varsFiles, vars := fakeActor.ReadManifestArgsForCall(0)
+														Expect(manifest).To(Equal(providedPath))
+														Expect(varsFiles).To(Equal([]string{firstProvidedVarsFilePath, secondProvidedVarsFilePath}))
+														Expect(vars).To(BeEmpty())
+													})
+												})
+											})
+
+											Context("vars flag only", func() {
+												var vars []template.VarKV
+
+												BeforeEach(func() {
+													vars = []template.VarKV{
+														{Name: "some-var", Value: "some-value"},
+														{Name: "another-var", Value: 1},
+													}
+
+													cmd.Vars = vars
+												})
+
+												It("should read the vars and pass only the vars array to ReadManifest", func() {
+													Expect(executeErr).ToNot(HaveOccurred())
+
+													Expect(testUI.Out).To(Say("Pushing from manifest to org some-org / space some-space as some-user\\.\\.\\."))
+													Expect(testUI.Out).To(Say("Using manifest file %s", regexp.QuoteMeta(providedPath)))
+
+													Expect(fakeActor.ReadManifestCallCount()).To(Equal(1))
+													manifest, varsFiles, vars := fakeActor.ReadManifestArgsForCall(0)
+													Expect(manifest).To(Equal(providedPath))
+													Expect(varsFiles).To(BeEmpty())
+													Expect(vars).To(ConsistOf([]template.VarKV{
+														{Name: "some-var", Value: "some-value"},
+														{Name: "another-var", Value: 1},
+													}))
+												})
+											})
 										})
 									})
 								})
@@ -814,7 +955,8 @@ var _ = Describe("push Command", func() {
 
 			Context("when general app settings are given", func() {
 				BeforeEach(func() {
-					cmd.Buildpack = flag.Buildpack{FilteredString: types.FilteredString{Value: "some-buildpack", IsSet: true}}
+					// cmd.Buildpacks = []string{"some-buildpack"}
+					cmd.Buildpack = "some-buildpack"
 					cmd.Command = flag.Command{FilteredString: types.FilteredString{IsSet: true, Value: "echo foo bar baz"}}
 					cmd.DiskQuota = flag.Megabytes{NullUint64: types.NullUint64{Value: 1024, IsSet: true}}
 					cmd.HealthCheckTimeout = 14
@@ -826,7 +968,8 @@ var _ = Describe("push Command", func() {
 
 				It("sets them on the command line settings", func() {
 					Expect(commandLineSettingsErr).ToNot(HaveOccurred())
-					Expect(settings.Buildpack).To(Equal(types.FilteredString{Value: "some-buildpack", IsSet: true}))
+					// Expect(settings.Buildpacks).To(ConsistOf("some-buildpack"))
+					Expect(settings.Buildpack).To(Equal("some-buildpack"))
 					Expect(settings.Command).To(Equal(types.FilteredString{IsSet: true, Value: "echo foo bar baz"}))
 					Expect(settings.DiskQuota).To(Equal(uint64(1024)))
 					Expect(settings.HealthCheckTimeout).To(Equal(14))
@@ -968,6 +1111,27 @@ var _ = Describe("push Command", func() {
 				Expect(commandLineSettingsErr).To(MatchError(expectedErr))
 			},
 
+			Entry("--droplet and --docker-username",
+				func() {
+					cmd.DropletPath = "some-droplet-path"
+					cmd.DockerUsername = "some-docker-username"
+				},
+				translatableerror.ArgumentCombinationError{Args: []string{"--droplet", "--docker-username", "-p"}}),
+
+			Entry("--droplet and --docker-image",
+				func() {
+					cmd.DropletPath = "some-droplet-path"
+					cmd.DockerImage.Path = "some-docker-image"
+				},
+				translatableerror.ArgumentCombinationError{Args: []string{"--droplet", "--docker-image", "-o"}}),
+
+			Entry("--droplet and -p",
+				func() {
+					cmd.DropletPath = "some-droplet-path"
+					cmd.AppPath = "some-directory-path"
+				},
+				translatableerror.ArgumentCombinationError{Args: []string{"--droplet", "-p"}}),
+
 			Entry("-o and -p",
 				func() {
 					cmd.DockerImage.Path = "some-docker-image"
@@ -978,7 +1142,8 @@ var _ = Describe("push Command", func() {
 			Entry("-b and --docker-image",
 				func() {
 					cmd.DockerImage.Path = "some-docker-image"
-					cmd.Buildpack = flag.Buildpack{FilteredString: types.FilteredString{Value: "some-buildpack", IsSet: true}}
+					// cmd.Buildpacks = []string{"some-buildpack"}
+					cmd.Buildpack = "some-buildpack"
 				},
 				translatableerror.ArgumentCombinationError{Args: []string{"-b", "--docker-image, -o"}}),
 

@@ -15,15 +15,19 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/spf13/viper"
 
-	"github.com/google/go-containerregistry/authn"
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1"
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 var (
@@ -37,16 +41,24 @@ func getBaseImage(s string) (v1.Image, error) {
 		ref = defaultBaseImage
 	}
 	log.Printf("Using base %s for %s", ref, s)
-	return remote.Image(ref, authn.Anonymous, http.DefaultTransport)
+	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
+	if err != nil {
+		return nil, err
+	}
+	return remote.Image(ref, auth, http.DefaultTransport)
 }
 
-func getMountPaths() []name.Repository {
-	repos := make([]name.Repository, 0, len(baseImageOverrides)+1)
-	repos = append(repos, defaultBaseImage.Context())
-	for _, v := range baseImageOverrides {
-		repos = append(repos, v.Context())
+func getCreationTime() (*v1.Time, error) {
+	epoch := os.Getenv("SOURCE_DATE_EPOCH")
+	if epoch == "" {
+		return nil, nil
 	}
-	return repos
+
+	seconds, err := strconv.ParseInt(epoch, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("the environment variable SOURCE_DATE_EPOCH is invalid. It's must be a number of seconds since January 1st 1970, 00:00 UTC, got %v", err)
+	}
+	return &v1.Time{time.Unix(seconds, 0)}, nil
 }
 
 func init() {

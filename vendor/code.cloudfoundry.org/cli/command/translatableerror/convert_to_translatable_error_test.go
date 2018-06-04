@@ -62,6 +62,11 @@ var _ = Describe("ConvertToTranslatableError", func() {
 			actionerror.DomainNotFoundError{Name: "some-domain-name", GUID: "some-domain-guid"},
 			DomainNotFoundError{Name: "some-domain-name", GUID: "some-domain-guid"}),
 
+		Entry("actionerror.EmptyBuildpacksError -> EmptyBuildpacksError",
+			manifest.EmptyBuildpacksError{},
+			EmptyBuildpacksError{},
+		),
+
 		Entry("actionerror.EmptyDirectoryError -> EmptyDirectoryError",
 			actionerror.EmptyDirectoryError{Path: "some-filename"},
 			EmptyDirectoryError{Path: "some-filename"}),
@@ -85,6 +90,10 @@ var _ = Describe("ConvertToTranslatableError", func() {
 		Entry("actionerror.HTTPHealthCheckInvalidError -> HTTPHealthCheckInvalidError",
 			actionerror.HTTPHealthCheckInvalidError{},
 			HTTPHealthCheckInvalidError{}),
+
+		Entry("actionerror.InvalidBuildpacksError -> InvalidBuildpacksError",
+			actionerror.InvalidBuildpacksError{},
+			InvalidBuildpacksError{}),
 
 		Entry("actionerror.InvalidHTTPRouteSettings -> PortNotAllowedWithHTTPDomainError",
 			actionerror.InvalidHTTPRouteSettings{Domain: "some-domain"},
@@ -317,6 +326,10 @@ var _ = Describe("ConvertToTranslatableError", func() {
 		Entry("manifest.GlobalFieldError -> TriggerLegacyPushError",
 			manifest.GlobalFieldsError{Fields: []string{"some-field"}},
 			TriggerLegacyPushError{GlobalRelated: []string{"some-field"}}),
+
+		Entry("manifest.InterpolationError -> InterpolationError",
+			manifest.InterpolationError{Err: errors.New("an-error")},
+			InterpolationError{Err: errors.New("an-error")}),
 
 		// Plugin Errors
 		Entry("pluginerror.RawHTTPStatusError -> DownloadPluginHTTPError",

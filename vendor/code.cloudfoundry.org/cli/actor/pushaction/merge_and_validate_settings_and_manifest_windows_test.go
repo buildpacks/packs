@@ -24,7 +24,7 @@ var _ = Describe("MergeAndValidateSettingsAndManifest", func() {
 	)
 
 	BeforeEach(func() {
-		actor = NewActor(nil, nil)
+		actor = NewActor(nil, nil, nil)
 		currentDirectory = getCurrentDir()
 	})
 
@@ -100,6 +100,25 @@ var _ = Describe("MergeAndValidateSettingsAndManifest", func() {
 				Path: "C:\\does-not-exist",
 			}},
 			actionerror.NonexistentAppPathError{Path: "C:\\does-not-exist"}),
+
+		Entry("no NonexistentAppPathError if docker image provided via command line",
+			CommandLineSettings{
+				Name:        "some-name",
+				DockerImage: "some-docker-image",
+			}, nil, nil),
+
+		Entry("no NonexistentAppPathError if docker image provided via manifest",
+			CommandLineSettings{},
+			[]manifest.Application{{
+				Name:        "some-name",
+				DockerImage: "some-docker-image",
+			}}, nil),
+
+		Entry("no NonexistentAppPathError if droplet path provided via command line",
+			CommandLineSettings{
+				Name:        "some-name",
+				DropletPath: "some-droplet-path",
+			}, nil, nil),
 	)
 
 })

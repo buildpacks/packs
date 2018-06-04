@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/google/go-containerregistry/authn"
-	"github.com/google/go-containerregistry/name"
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/spf13/cobra"
 )
+
+func init() { Root.AddCommand(NewCmdList()) }
 
 func NewCmdList() *cobra.Command {
 	return &cobra.Command{

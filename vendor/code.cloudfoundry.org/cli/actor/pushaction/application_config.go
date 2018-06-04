@@ -27,6 +27,7 @@ type ApplicationConfig struct {
 	UnmatchedResources []v2action.Resource
 	Archive            bool
 	Path               string
+	DropletPath        string
 
 	TargetedSpaceGUID string
 }
@@ -39,21 +40,42 @@ func (config ApplicationConfig) UpdatingApplication() bool {
 	return !config.CreatingApplication()
 }
 
+func (config ApplicationConfig) HasV3Buildpacks() bool {
+	return len(config.DesiredApplication.Buildpacks) > 1
+}
+
 func (actor Actor) ConvertToApplicationConfigs(orgGUID string, spaceGUID string, noStart bool, apps []manifest.Application) ([]ApplicationConfig, Warnings, error) {
 	var configs []ApplicationConfig
 	var warnings Warnings
 
 	log.Infof("iterating through %d app configuration(s)", len(apps))
 	for _, app := range apps {
-		absPath, err := filepath.EvalSymlinks(app.Path)
-		if err != nil {
-			return nil, nil, err
-		}
 
-		config := ApplicationConfig{
-			TargetedSpaceGUID: spaceGUID,
-			Path:              absPath,
-			NoRoute:           app.NoRoute,
+		var (
+			config  ApplicationConfig
+			absPath string
+			err     error
+		)
+		if app.DropletPath != "" {
+			absPath, err = filepath.EvalSymlinks(app.DropletPath)
+			if err != nil {
+				return nil, nil, err
+			}
+			config = ApplicationConfig{
+				TargetedSpaceGUID: spaceGUID,
+				DropletPath:       absPath,
+				NoRoute:           app.NoRoute,
+			}
+		} else {
+			absPath, err = filepath.EvalSymlinks(app.Path)
+			if err != nil {
+				return nil, nil, err
+			}
+			config = ApplicationConfig{
+				TargetedSpaceGUID: spaceGUID,
+				Path:              absPath,
+				NoRoute:           app.NoRoute,
+			}
 		}
 
 		log.Infoln("searching for app", app.Name)
@@ -104,7 +126,7 @@ func (actor Actor) ConvertToApplicationConfigs(orgGUID string, spaceGUID string,
 			}
 		}
 
-		if app.DockerImage == "" {
+		if app.DockerImage == "" && app.DropletPath == "" {
 			config, err = actor.configureResources(config)
 			if err != nil {
 				log.Errorln("configuring resources", err)
@@ -222,9 +244,19 @@ func (actor Actor) configureResources(config ApplicationConfig) (ApplicationConf
 }
 
 func (Actor) overrideApplicationProperties(application Application, manifest manifest.Application, noStart bool) Application {
+
 	if manifest.Buildpack.IsSet {
 		application.Buildpack = manifest.Buildpack
 	}
+
+	// if manifest.Buildpacks != nil {
+	// 	application.Buildpacks = []string{}
+	// }
+
+	// for _, buildpack := range manifest.Buildpacks {
+	// 	application.Buildpacks = append(application.Buildpacks, buildpack)
+	// }
+
 	if manifest.Command.IsSet {
 		application.Command = manifest.Command
 	}

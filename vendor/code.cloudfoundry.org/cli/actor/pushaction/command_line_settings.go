@@ -8,7 +8,7 @@ import (
 )
 
 type CommandLineSettings struct {
-	Buildpack            types.FilteredString
+	Buildpack            string
 	Command              types.FilteredString
 	CurrentDirectory     string
 	DefaultRouteDomain   string
@@ -17,6 +17,7 @@ type CommandLineSettings struct {
 	DockerImage          string
 	DockerPassword       string
 	DockerUsername       string
+	DropletPath          string
 	HealthCheckTimeout   int
 	HealthCheckType      string
 	Instances            types.NullInt
@@ -31,8 +32,8 @@ type CommandLineSettings struct {
 }
 
 func (settings CommandLineSettings) OverrideManifestSettings(app manifest.Application) manifest.Application {
-	if settings.Buildpack.IsSet {
-		app.Buildpack = settings.Buildpack
+	if settings.Buildpack != "" {
+		app = settings.setBuildpacks(app)
 	}
 
 	if settings.Command.IsSet {
@@ -61,6 +62,10 @@ func (settings CommandLineSettings) OverrideManifestSettings(app manifest.Applic
 
 	if settings.DockerPassword != "" {
 		app.DockerPassword = settings.DockerPassword
+	}
+
+	if settings.DropletPath != "" {
+		app.DropletPath = settings.DropletPath
 	}
 
 	if settings.HealthCheckTimeout != 0 {
@@ -94,7 +99,8 @@ func (settings CommandLineSettings) OverrideManifestSettings(app manifest.Applic
 	if settings.ProvidedAppPath != "" {
 		app.Path = settings.ProvidedAppPath
 	}
-	if app.Path == "" && app.DockerImage == "" {
+
+	if app.Path == "" && app.DockerImage == "" && app.DropletPath == "" {
 		app.Path = settings.CurrentDirectory
 	}
 
@@ -113,17 +119,34 @@ func (settings CommandLineSettings) OverrideManifestSettings(app manifest.Applic
 	return app
 }
 
+func (settings CommandLineSettings) setBuildpacks(app manifest.Application) manifest.Application {
+	app.Buildpack = types.FilteredString{}
+	// app.Buildpacks = nil
+
+	if settings.Buildpack != "" {
+		app.Buildpack.ParseValue(settings.Buildpack)
+		return app
+	}
+
+	// for _, bp := range settings.Buildpacks {
+	// 	app.Buildpacks = append(app.Buildpacks, bp)
+	// }
+
+	return app
+}
+
 func (settings CommandLineSettings) String() string {
 	return fmt.Sprintf(
-		"App Name: '%s', Buildpack: (%t, '%s'), Command: (%t, '%s'), CurrentDirectory: '%s', Disk Quota: '%d', Docker Image: '%s', Health Check Timeout: '%d', Health Check Type: '%s', Instances: (%t, '%d'), Memory: '%d', Provided App Path: '%s', Stack: '%s', RoutePath: '%s', Domain: '%s', Hostname: '%s'",
+		"App Name: '%s', Buildpack: %s, Command: (%t, '%s'), CurrentDirectory: '%s', Disk Quota: '%d', Docker Image: '%s', Droplet: '%s', Health Check Timeout: '%d', Health Check Type: '%s', Instances: (%t, '%d'), Memory: '%d', Provided App Path: '%s', Stack: '%s', RoutePath: '%s', Domain: '%s', Hostname: '%s'",
 		settings.Name,
-		settings.Buildpack.IsSet,
-		settings.Buildpack.Value,
+		// strings.Join(settings.Buildpacks, ", "),
+		settings.Buildpack,
 		settings.Command.IsSet,
 		settings.Command.Value,
 		settings.CurrentDirectory,
 		settings.DiskQuota,
 		settings.DockerImage,
+		settings.DropletPath,
 		settings.HealthCheckTimeout,
 		settings.HealthCheckType,
 		settings.Instances.IsSet,

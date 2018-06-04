@@ -98,7 +98,7 @@ var _ = Describe("share-service command", func() {
 			var server *Server
 
 			BeforeEach(func() {
-				server = helpers.StartAndTargetServerWithV3Version("3.0.0")
+				server = helpers.StartAndTargetServerWithAPIVersions(helpers.DefaultV2Version, "3.0.0")
 			})
 
 			AfterEach(func() {
@@ -239,7 +239,11 @@ var _ = Describe("share-service command", func() {
 					Eventually(helpers.CF("create-user", user, password)).Should(Exit(0))
 					Eventually(helpers.CF("set-space-role", user, sourceOrgName, sourceSpaceName, "SpaceDeveloper")).Should(Exit(0))
 					Eventually(helpers.CF("set-space-role", user, sharedToOrgName, sharedToSpaceName, "SpaceAuditor")).Should(Exit(0))
-					Eventually(helpers.CF("auth", user, password)).Should(Exit(0))
+					env := map[string]string{
+						"CF_USERNAME": user,
+						"CF_PASSWORD": password,
+					}
+					Eventually(helpers.CFWithEnv(env, "auth")).Should(Exit(0))
 					helpers.TargetOrgAndSpace(sharedToOrgName, sharedToSpaceName)
 					sharedToSpaceGUID = helpers.GetSpaceGUID(sharedToSpaceName)
 					helpers.TargetOrgAndSpace(sourceOrgName, sourceSpaceName)

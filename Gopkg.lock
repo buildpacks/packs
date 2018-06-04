@@ -28,19 +28,19 @@
     "cf/formatters",
     "cf/i18n",
     "cf/models",
+    "cf/util/glob",
     "command/translatableerror",
     "i18n/resources",
     "types",
     "util",
     "util/clissh/ssherror",
     "util/configv3",
-    "util/glob",
     "util/manifest",
     "util/ui",
     "version"
   ]
-  revision = "88a03e995eff43161b1e0c64d67edadc2e8c6db1"
-  version = "v6.35.2"
+  revision = "a400097531d46b877badee63790d847655cdf595"
+  version = "v6.37.0"
 
 [[projects]]
   branch = "master"
@@ -70,6 +70,46 @@
   packages = ["."]
   revision = "2ee87856327ba09384cabd113bc6b5d174e9ec0f"
   version = "v3.5.1"
+
+[[projects]]
+  name = "github.com/bmatcuk/doublestar"
+  packages = ["."]
+  revision = "b3608229437ba4dc33dae64d56a79a2a73f1f6b2"
+  version = "v1.0.9"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/charlievieth/fs"
+  packages = ["."]
+  revision = "7dc373669fa10ddf827c37c595dee30a2f001be9"
+
+[[projects]]
+  name = "github.com/cloudfoundry/bosh-cli"
+  packages = ["director/template"]
+  revision = "712bfd7271b478ba03c3f604339e2eefbec4647c"
+  version = "v3.0.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/cloudfoundry/bosh-utils"
+  packages = [
+    "errors",
+    "logger",
+    "system"
+  ]
+  revision = "b082aa9a81950fa8df1a969575319417b1e073f4"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/cppforlife/go-patch"
+  packages = ["patch"]
+  revision = "250da0e0e68ce3367b4302f34218f6c064eb9559"
+
+[[projects]]
+  name = "github.com/cyphar/filepath-securejoin"
+  packages = ["."]
+  revision = "06bda8370f45268db985f7af15732444d94ed51c"
+  version = "v0.2.1"
 
 [[projects]]
   name = "github.com/docker/distribution"
@@ -126,25 +166,24 @@
   revision = "2d684516a8861da43017284349b7e303e809ac21"
 
 [[projects]]
-  branch = "remote-layer"
+  branch = "master"
   name = "github.com/google/go-containerregistry"
   packages = [
-    "authn",
-    "name",
-    "v1",
-    "v1/daemon",
-    "v1/empty",
-    "v1/mutate",
-    "v1/partial",
-    "v1/random",
-    "v1/remote",
-    "v1/remote/transport",
-    "v1/tarball",
-    "v1/types",
-    "v1/v1util"
+    "pkg/authn",
+    "pkg/name",
+    "pkg/v1",
+    "pkg/v1/daemon",
+    "pkg/v1/empty",
+    "pkg/v1/mutate",
+    "pkg/v1/partial",
+    "pkg/v1/random",
+    "pkg/v1/remote",
+    "pkg/v1/remote/transport",
+    "pkg/v1/tarball",
+    "pkg/v1/types",
+    "pkg/v1/v1util"
   ]
-  revision = "d9e30031b9015b04effafe166823202611786839"
-  source = "https://github.com/jonjohnsonjr/go-containerregistry"
+  revision = "11085b1805b9e9e6987278a5f61202d088e9b7f0"
 
 [[projects]]
   branch = "master"
@@ -201,7 +240,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "1a580b3eff7814fc9b40602fd35256c63b50f491"
+  revision = "df8d4716b3472e4a531c33cedbe537dae921a1a9"
 
 [[projects]]
   branch = "master"
@@ -212,7 +251,7 @@
     "internal/socks",
     "proxy"
   ]
-  revision = "57065200b4b034a1c8ad54ff77069408c2218ae6"
+  revision = "1e491301e022f8f977054da4c2d852decd59571f"
 
 [[projects]]
   branch = "master"
@@ -221,7 +260,7 @@
     "unix",
     "windows"
   ]
-  revision = "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b"
+  revision = "c11f84a56e43e20a78cee75a7c034031ecf57d1f"
 
 [[projects]]
   branch = "master"
@@ -237,15 +276,14 @@
   revision = "5c1cf69b5978e5a34c5f9ba09a83e56acc4b7877"
 
 [[projects]]
-  branch = "off_by_one_scanner_error_line"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "fd70c8694ac38cc10ed519e30c6309aa9cb7bbd9"
-  source = "github.com/vitreuz/yaml"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "461245e57a6f3c1d0b63365630b141666f4033ff4d7eb04d7741863a39550ed2"
+  inputs-digest = "f930ac3eacd7954c9676680be24581cf512c244dc006f2c227e179981fe02a6e"
   solver-name = "gps-cdcl"
   solver-version = 1

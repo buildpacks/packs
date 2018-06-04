@@ -14,17 +14,13 @@ type User struct {
 	GUID string
 }
 
-// userRequestBody represents the body of the request.
-type userRequestBody struct {
-	GUID string `json:"guid"`
-}
-
 // UnmarshalJSON helps unmarshal a Cloud Controller User response.
 func (user *User) UnmarshalJSON(data []byte) error {
 	var ccUser struct {
 		Metadata internal.Metadata `json:"metadata"`
 	}
-	if err := json.Unmarshal(data, &ccUser); err != nil {
+	err := cloudcontroller.DecodeJSON(data, &ccUser)
+	if err != nil {
 		return err
 	}
 
@@ -35,6 +31,10 @@ func (user *User) UnmarshalJSON(data []byte) error {
 // CreateUser creates a new Cloud Controller User from the provided UAA user
 // ID.
 func (client *Client) CreateUser(uaaUserID string) (User, Warnings, error) {
+	type userRequestBody struct {
+		GUID string `json:"guid"`
+	}
+
 	bodyBytes, err := json.Marshal(userRequestBody{
 		GUID: uaaUserID,
 	})

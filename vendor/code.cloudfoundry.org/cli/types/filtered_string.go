@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"strings"
 )
 
 // FilteredString is a wrapper around string values that can be null/default or an
@@ -11,6 +12,8 @@ type FilteredString struct {
 	IsSet bool
 	Value string
 }
+
+type FilteredStrings []FilteredString
 
 // ParseValue is used to parse a user provided flag argument.
 func (n *FilteredString) ParseValue(val string) {
@@ -48,10 +51,30 @@ func (n *FilteredString) UnmarshalJSON(rawJSON []byte) error {
 	return nil
 }
 
+// MarshalJSON marshals the value field if IsSet is true, otherwise returns an
+// null.
 func (n FilteredString) MarshalJSON() ([]byte, error) {
 	if n.IsSet {
 		return json.Marshal(n.Value)
 	}
 
 	return json.Marshal(nil)
+}
+
+func (n FilteredString) String() string {
+	if n.IsSet {
+		return n.Value
+	}
+
+	return ""
+}
+
+func (n FilteredStrings) String() string {
+	var ss []string
+
+	for _, fs := range n {
+		ss = append(ss, fs.Value)
+	}
+
+	return strings.Join(ss, ", ")
 }

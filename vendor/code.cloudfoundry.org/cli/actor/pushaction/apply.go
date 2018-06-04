@@ -29,7 +29,12 @@ func (actor Actor) Apply(config ApplicationConfig, progressBar ProgressBar) (<-c
 		var err error
 
 		eventStream <- SettingUpApplication
-		config, event, warnings, err = actor.CreateOrUpdateApp(config)
+		if config.UpdatingApplication() {
+			config, event, warnings, err = actor.UpdateApplication(config)
+		} else {
+			config, event, warnings, err = actor.CreateApplication(config)
+		}
+
 		warningsStream <- warnings
 		if err != nil {
 			errorStream <- err
@@ -78,55 +83,75 @@ func (actor Actor) Apply(config ApplicationConfig, progressBar ProgressBar) (<-c
 
 		if len(config.CurrentServices) != len(config.DesiredServices) {
 			eventStream <- ConfiguringServices
-			var boundServices bool
-			config, boundServices, warnings, err = actor.BindServices(config)
+			config, _, warnings, err = actor.BindServices(config)
 			warningsStream <- warnings
 			if err != nil {
 				errorStream <- err
 				return
 			}
-			if boundServices {
-				log.Debugf("bound desired services: %#v", config.DesiredServices)
-				eventStream <- BoundServices
-			}
+
+			log.Debugf("bound desired services: %#v", config.DesiredServices)
+			eventStream <- BoundServices
 		}
 
-		if config.DesiredApplication.DockerImage == "" {
+		if config.DropletPath != "" {
+			for count := 0; count < PushRetries; count++ {
+				warnings, err = actor.UploadDroplet(config, config.DropletPath, progressBar, eventStream)
+				warningsStream <- warnings
+				if _, ok := err.(ccerror.PipeSeekError); ok {
+					eventStream <- RetryUpload
+				} else {
+					break
+				}
+			}
+
+			if err != nil {
+				if e, ok := err.(ccerror.PipeSeekError); ok {
+					errorStream <- actionerror.UploadFailedError{Err: e.Err}
+				} else {
+					errorStream <- err
+				}
+				return
+			}
+		} else if config.DesiredApplication.DockerImage == "" {
 			eventStream <- ResourceMatching
 			config, warnings = actor.SetMatchedResources(config)
 			warningsStream <- warnings
 
-			if len(config.UnmatchedResources) == 0 {
-				eventStream <- UploadingApplication
-				warnings, err = actor.UploadPackage(config)
-				warningsStream <- warnings
+			if len(config.UnmatchedResources) > 0 {
+				var archivePath string
+				archivePath, err = actor.CreateArchive(config)
 				if err != nil {
 					errorStream <- err
-					return
-				}
-			} else {
-				archivePath, err := actor.CreateArchive(config)
-				if err != nil {
-					errorStream <- err
+					os.RemoveAll(archivePath)
 					return
 				}
 				eventStream <- CreatingArchive
-				defer os.Remove(archivePath)
+				defer os.RemoveAll(archivePath)
 
 				for count := 0; count < PushRetries; count++ {
 					warnings, err = actor.UploadPackageWithArchive(config, archivePath, progressBar, eventStream)
 					warningsStream <- warnings
-					if _, ok := err.(ccerror.PipeSeekError); !ok {
+					if _, ok := err.(ccerror.PipeSeekError); ok {
+						eventStream <- RetryUpload
+					} else {
 						break
 					}
-					eventStream <- RetryUpload
 				}
 
 				if err != nil {
-					if _, ok := err.(ccerror.PipeSeekError); ok {
-						errorStream <- actionerror.UploadFailedError{}
-						return
+					if e, ok := err.(ccerror.PipeSeekError); ok {
+						errorStream <- actionerror.UploadFailedError{Err: e.Err}
+					} else {
+						errorStream <- err
 					}
+					return
+				}
+			} else {
+				eventStream <- UploadingApplication
+				warnings, err = actor.UploadPackage(config)
+				warningsStream <- warnings
+				if err != nil {
 					errorStream <- err
 					return
 				}

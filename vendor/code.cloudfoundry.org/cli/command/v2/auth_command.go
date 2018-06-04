@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/cli/api/uaa/constant"
 	"code.cloudfoundry.org/cli/command"
 	"code.cloudfoundry.org/cli/command/flag"
+	"code.cloudfoundry.org/cli/command/translatableerror"
 	"code.cloudfoundry.org/cli/command/v2/shared"
 )
 
@@ -19,7 +20,7 @@ type AuthActor interface {
 type AuthCommand struct {
 	RequiredArgs      flag.Authentication `positional-args:"yes"`
 	ClientCredentials bool                `long:"client-credentials" description:"Use (non-user) service account (also called client credentials)"`
-	usage             interface{}         `usage:"CF_NAME auth USERNAME PASSWORD\n   CF_NAME auth CLIENT_ID CLIENT_SECRET --client-credentials\n\nWARNING:\n   Providing your password as a command line option is highly discouraged\n   Your password may be visible to others and may be recorded in your shell history\n\nEXAMPLES:\n   CF_NAME auth name@example.com \"my password\" (use quotes for passwords with a space)\n   CF_NAME auth name@example.com \"\\\"password\\\"\" (escape quotes if used in password)"`
+	usage             interface{}         `usage:"CF_NAME auth USERNAME PASSWORD\n   CF_NAME auth CLIENT_ID CLIENT_SECRET --client-credentials\n\nENVIRONMENT VARIABLES:\n   CF_USERNAME=user		Authenticating user. Overridden if USERNAME argument is provided.\n   CF_PASSWORD=password		Password associated with user. Overriden if PASSWORD argument is provided.\n\nWARNING:\n   Providing your password as a command line option is highly discouraged\n   Your password may be visible to others and may be recorded in your shell history\n   Consider using the CF_PASSWORD environment variable instead\n\nEXAMPLES:\n   CF_NAME auth name@example.com \"my password\" (use quotes for passwords with a space)\n   CF_NAME auth name@example.com \"\\\"password\\\"\" (escape quotes if used in password)"`
 	relatedCommands   interface{}         `related_commands:"api, login, target"`
 
 	UI     command.UI
@@ -41,7 +42,12 @@ func (cmd *AuthCommand) Setup(config command.Config, ui command.UI) error {
 }
 
 func (cmd AuthCommand) Execute(args []string) error {
-	err := command.WarnAPIVersionCheck(cmd.Config, cmd.UI)
+	username, password, err := cmd.checkEnvVariables()
+	if err != nil {
+		return err
+	}
+
+	err = command.WarnCLIVersionCheck(cmd.Config, cmd.UI)
 	if err != nil {
 		return err
 	}
@@ -58,7 +64,7 @@ func (cmd AuthCommand) Execute(args []string) error {
 		grantType = constant.GrantTypeClientCredentials
 	}
 
-	err = cmd.Actor.Authenticate(cmd.RequiredArgs.Username, cmd.RequiredArgs.Password, grantType)
+	err = cmd.Actor.Authenticate(username, password, grantType)
 	if err != nil {
 		return err
 	}
@@ -71,4 +77,38 @@ func (cmd AuthCommand) Execute(args []string) error {
 		})
 
 	return nil
+}
+
+func (cmd AuthCommand) checkEnvVariables() (string, string, error) {
+	var (
+		userMissing     bool
+		passwordMissing bool
+	)
+
+	username := cmd.RequiredArgs.Username
+	if username == "" {
+		if envUser := cmd.Config.CFUsername(); envUser != "" {
+			username = envUser
+		} else {
+			userMissing = true
+		}
+	}
+
+	password := cmd.RequiredArgs.Password
+	if password == "" {
+		if envPassword := cmd.Config.CFPassword(); envPassword != "" {
+			password = envPassword
+		} else {
+			passwordMissing = true
+		}
+	}
+
+	if userMissing || passwordMissing {
+		return "", "", translatableerror.MissingCredentialsError{
+			MissingUsername: userMissing,
+			MissingPassword: passwordMissing,
+		}
+	}
+
+	return username, password, nil
 }

@@ -20,38 +20,77 @@ var _ = Describe("Service Binding", func() {
 
 	Describe("CreateServiceBinding", func() {
 		Context("when the create is successful", func() {
-			BeforeEach(func() {
-				response := `
+			Context("when a service binding name is provided", func() {
+				BeforeEach(func() {
+					expectedRequestBody := map[string]interface{}{
+						"service_instance_guid": "some-service-instance-guid",
+						"app_guid":              "some-app-guid",
+						"name":                  "some-binding-name",
+						"parameters": map[string]interface{}{
+							"the-service-broker": "wants this object",
+						},
+					}
+					response := `
 						{
 							"metadata": {
 								"guid": "some-service-binding-guid"
 							}
 						}`
-				requestBody := map[string]interface{}{
-					"service_instance_guid": "some-service-instance-guid",
-					"app_guid":              "some-app-guid",
-					"parameters": map[string]interface{}{
+					server.AppendHandlers(
+						CombineHandlers(
+							VerifyRequest(http.MethodPost, "/v2/service_bindings"),
+							VerifyJSONRepresenting(expectedRequestBody),
+							RespondWith(http.StatusCreated, response, http.Header{"X-Cf-Warnings": {"this is a warning"}}),
+						),
+					)
+				})
+
+				It("returns the created object and warnings", func() {
+					parameters := map[string]interface{}{
 						"the-service-broker": "wants this object",
-					},
-				}
-				server.AppendHandlers(
-					CombineHandlers(
-						VerifyRequest(http.MethodPost, "/v2/service_bindings"),
-						VerifyJSONRepresenting(requestBody),
-						RespondWith(http.StatusCreated, response, http.Header{"X-Cf-Warnings": {"this is a warning"}}),
-					),
-				)
+					}
+					serviceBinding, warnings, err := client.CreateServiceBinding("some-app-guid", "some-service-instance-guid", "some-binding-name", parameters)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(serviceBinding).To(Equal(ServiceBinding{GUID: "some-service-binding-guid"}))
+					Expect(warnings).To(ConsistOf(Warnings{"this is a warning"}))
+				})
 			})
 
-			It("returns the created object and warnings", func() {
-				parameters := map[string]interface{}{
-					"the-service-broker": "wants this object",
-				}
-				serviceBinding, warnings, err := client.CreateServiceBinding("some-app-guid", "some-service-instance-guid", parameters)
-				Expect(err).NotTo(HaveOccurred())
+			Context("when a service binding name is not provided", func() {
+				BeforeEach(func() {
+					expectedRequestBody := map[string]interface{}{
+						"service_instance_guid": "some-service-instance-guid",
+						"app_guid":              "some-app-guid",
+						"parameters": map[string]interface{}{
+							"the-service-broker": "wants this object",
+						},
+					}
+					response := `
+						{
+							"metadata": {
+								"guid": "some-service-binding-guid"
+							}
+						}`
+					server.AppendHandlers(
+						CombineHandlers(
+							VerifyRequest(http.MethodPost, "/v2/service_bindings"),
+							VerifyJSONRepresenting(expectedRequestBody),
+							RespondWith(http.StatusCreated, response, http.Header{"X-Cf-Warnings": {"this is a warning"}}),
+						),
+					)
+				})
 
-				Expect(serviceBinding).To(Equal(ServiceBinding{GUID: "some-service-binding-guid"}))
-				Expect(warnings).To(ConsistOf(Warnings{"this is a warning"}))
+				It("returns the created object and warnings", func() {
+					parameters := map[string]interface{}{
+						"the-service-broker": "wants this object",
+					}
+					serviceBinding, warnings, err := client.CreateServiceBinding("some-app-guid", "some-service-instance-guid", "", parameters)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(serviceBinding).To(Equal(ServiceBinding{GUID: "some-service-binding-guid"}))
+					Expect(warnings).To(ConsistOf(Warnings{"this is a warning"}))
+				})
 			})
 		})
 
@@ -76,9 +115,119 @@ var _ = Describe("Service Binding", func() {
 				parameters := map[string]interface{}{
 					"the-service-broker": "wants this object",
 				}
-				_, warnings, err := client.CreateServiceBinding("some-app-guid", "some-service-instance-guid", parameters)
+				_, warnings, err := client.CreateServiceBinding("some-app-guid", "some-service-instance-guid", "", parameters)
 				Expect(err).To(MatchError(ccerror.ServiceBindingTakenError{Message: "The app space binding to service is taken: some-app-guid some-service-instance-guid"}))
 				Expect(warnings).To(ConsistOf(Warnings{"this is a warning"}))
+			})
+		})
+	})
+
+	Describe("DeleteServiceBinding", func() {
+		Context("when the service binding exist", func() {
+			BeforeEach(func() {
+				server.AppendHandlers(CombineHandlers(VerifyRequest(http.MethodDelete, "/v2/service_bindings/some-service-binding-guid"), RespondWith(http.StatusNoContent, "{}", http.Header{"X-Cf-Warnings": {"this is a warning"}})))
+			})
+
+			It("deletes the service binding", func() {
+				warnings, err := client.DeleteServiceBinding("some-service-binding-guid")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(warnings).To(ConsistOf(Warnings{"this is a warning"}))
+			})
+		})
+
+		Context("when the service binding does not exist", func() {
+			BeforeEach(func() {
+				response := `{
+				"code": 90004,
+				"description": "The service binding could not be found: some-service-binding-guid",
+				"error_code": "CF-ServiceBindingNotFound"
+			}`
+				server.AppendHandlers(
+					CombineHandlers(
+						VerifyRequest(http.MethodDelete, "/v2/service_bindings/some-service-binding-guid"),
+						RespondWith(http.StatusNotFound, response, http.Header{"X-Cf-Warnings": {"this is a warning"}}),
+					),
+				)
+			})
+
+			It("returns a not found error", func() {
+				warnings, err := client.DeleteServiceBinding("some-service-binding-guid")
+				Expect(err).To(MatchError(ccerror.ResourceNotFoundError{
+					Message: "The service binding could not be found: some-service-binding-guid",
+				}))
+				Expect(warnings).To(ConsistOf(Warnings{"this is a warning"}))
+			})
+		})
+	})
+
+	Describe("GetServiceBinding", func() {
+		var (
+			serviceBinding ServiceBinding
+			warnings       Warnings
+			executeErr     error
+		)
+
+		JustBeforeEach(func() {
+			serviceBinding, warnings, executeErr = client.GetServiceBinding("some-service-binding-guid")
+		})
+
+		Context("when the cc returns an error", func() {
+			BeforeEach(func() {
+				response := `{
+					"code": 1,
+					"description": "some error description",
+					"error_code": "CF-SomeError"
+				}`
+				server.AppendHandlers(
+					CombineHandlers(
+						VerifyRequest(http.MethodGet, "/v2/service_bindings/some-service-binding-guid"),
+						RespondWith(http.StatusTeapot, response, http.Header{"X-Cf-Warnings": {"warning-1, warning-2"}}),
+					),
+				)
+			})
+
+			It("returns the error", func() {
+				Expect(executeErr).To(MatchError(ccerror.V2UnexpectedResponseError{
+					V2ErrorResponse: ccerror.V2ErrorResponse{
+						Code:        1,
+						Description: "some error description",
+						ErrorCode:   "CF-SomeError",
+					},
+					ResponseCode: http.StatusTeapot,
+				}))
+
+				Expect(warnings).To(ConsistOf("warning-1", "warning-2"))
+			})
+		})
+
+		Context("when there are no errors", func() {
+			BeforeEach(func() {
+				response := `{
+						"metadata": {
+							"guid": "service-binding-guid-1"
+						},
+						"entity": {
+							"app_guid":"app-guid-1",
+							"service_instance_guid": "service-instance-guid-1"
+						}
+					}`
+				server.AppendHandlers(
+					CombineHandlers(
+						VerifyRequest(http.MethodGet, "/v2/service_bindings/some-service-binding-guid"),
+						RespondWith(http.StatusOK, response, http.Header{"X-Cf-Warnings": {"warning-1, warning-2"}}),
+					),
+				)
+			})
+
+			It("returns the service binding", func() {
+				Expect(executeErr).ToNot(HaveOccurred())
+				Expect(warnings).To(ConsistOf("warning-1", "warning-2"))
+
+				Expect(serviceBinding).To(Equal(ServiceBinding{
+					GUID:                "service-binding-guid-1",
+					AppGUID:             "app-guid-1",
+					ServiceInstanceGUID: "service-instance-guid-1",
+				}))
 			})
 		})
 	})
@@ -161,49 +310,6 @@ var _ = Describe("Service Binding", func() {
 				}))
 				Expect(warnings).To(ConsistOf(Warnings{"this is a warning", "this is another warning"}))
 			})
-		})
-	})
-
-	Describe("DeleteServiceBinding", func() {
-		Context("when the service binding exist", func() {
-			BeforeEach(func() {
-				server.AppendHandlers(
-					CombineHandlers(
-						VerifyRequest(http.MethodDelete, "/v2/service_bindings/some-service-binding-guid"),
-						RespondWith(http.StatusNoContent, "{}", http.Header{"X-Cf-Warnings": {"this is a warning"}}),
-					),
-				)
-			})
-
-			It("deletes the service binding", func() {
-				warnings, err := client.DeleteServiceBinding("some-service-binding-guid")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(warnings).To(ConsistOf(Warnings{"this is a warning"}))
-			})
-		})
-	})
-
-	Context("when the service binding does not exist", func() {
-		BeforeEach(func() {
-			response := `{
-				"code": 90004,
-				"description": "The service binding could not be found: some-service-binding-guid",
-				"error_code": "CF-ServiceBindingNotFound"
-			}`
-			server.AppendHandlers(
-				CombineHandlers(
-					VerifyRequest(http.MethodDelete, "/v2/service_bindings/some-service-binding-guid"),
-					RespondWith(http.StatusNotFound, response, http.Header{"X-Cf-Warnings": {"this is a warning"}}),
-				),
-			)
-		})
-
-		It("returns a not found error", func() {
-			warnings, err := client.DeleteServiceBinding("some-service-binding-guid")
-			Expect(err).To(MatchError(ccerror.ResourceNotFoundError{
-				Message: "The service binding could not be found: some-service-binding-guid",
-			}))
-			Expect(warnings).To(ConsistOf(Warnings{"this is a warning"}))
 		})
 	})
 

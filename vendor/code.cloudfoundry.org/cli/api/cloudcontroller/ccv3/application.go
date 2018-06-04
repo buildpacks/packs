@@ -12,14 +12,21 @@ import (
 
 // Application represents a Cloud Controller V3 Application.
 type Application struct {
-	Name                string                    `json:"name,omitempty"`
-	Relationships       Relationships             `json:"relationships,omitempty"`
-	GUID                string                    `json:"guid,omitempty"`
-	State               constant.ApplicationState `json:"state,omitempty"`
-	LifecycleType       constant.AppLifecycleType `json:"-"`
-	LifecycleBuildpacks []string                  `json:"-"`
+	// GUID is the unique application identifier.
+	GUID string `json:"guid,omitempty"`
+	// LifecycleBuildpacks is a list of the names of buildpacks.
+	LifecycleBuildpacks []string `json:"-"`
+	// LifecycleType is the type of the lifecycle.
+	LifecycleType constant.AppLifecycleType `json:"-"`
+	// Name is the name given to the application.
+	Name string `json:"name,omitempty"`
+	// Relationships list the relationships to the application.
+	Relationships Relationships `json:"relationships,omitempty"`
+	// State is the desired state of the application.
+	State constant.ApplicationState `json:"state,omitempty"`
 }
 
+// MarshalJSON converts an Application into a Cloud Controller Application.
 func (a Application) MarshalJSON() ([]byte, error) {
 	type rawApp Application
 	var ccApp struct {
@@ -57,6 +64,7 @@ func (a Application) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ccApp)
 }
 
+// UnmarshalJSON helps unmarshal a Cloud Controller Application response.
 func (a *Application) UnmarshalJSON(data []byte) error {
 	type rawApp Application
 	var ccApp struct {
@@ -72,7 +80,7 @@ func (a *Application) UnmarshalJSON(data []byte) error {
 
 	ccApp.rawApp = (*rawApp)(a)
 
-	err := json.Unmarshal(data, &ccApp)
+	err := cloudcontroller.DecodeJSON(data, &ccApp)
 	if err != nil {
 		return err
 	}
@@ -81,32 +89,6 @@ func (a *Application) UnmarshalJSON(data []byte) error {
 	a.LifecycleBuildpacks = ccApp.Lifecycle.Data.Buildpacks
 
 	return nil
-}
-
-// GetApplications lists applications with optional filters.
-func (client *Client) GetApplications(query ...Query) ([]Application, Warnings, error) {
-	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.GetAppsRequest,
-		Query:       query,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var fullAppsList []Application
-	warnings, err := client.paginate(request, Application{}, func(item interface{}) error {
-		if app, ok := item.(Application); ok {
-			fullAppsList = append(fullAppsList, app)
-		} else {
-			return ccerror.UnknownObjectInListError{
-				Expected:   Application{},
-				Unexpected: item,
-			}
-		}
-		return nil
-	})
-
-	return fullAppsList, warnings, err
 }
 
 // CreateApplication creates an application with the given settings.
@@ -133,41 +115,30 @@ func (client *Client) CreateApplication(app Application) (Application, Warnings,
 	return responseApp, response.Warnings, err
 }
 
-// CreateApplicationActionsApplyManifestByApplication applies the manifest to
-// the given application.
-func (client *Client) CreateApplicationActionsApplyManifestByApplication(rawManifest []byte, appGUID string) (string, Warnings, error) {
+// GetApplications lists applications with optional queries.
+func (client *Client) GetApplications(query ...Query) ([]Application, Warnings, error) {
 	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.PostApplicationManifest,
-		URIParams:   map[string]string{"app_guid": appGUID},
-		Body:        bytes.NewReader(rawManifest),
-	})
-
-	if err != nil {
-		return "", nil, err
-	}
-
-	request.Header.Set("Content-Type", "application/x-yaml")
-
-	response := cloudcontroller.Response{}
-	err = client.connection.Make(request, &response)
-
-	return response.ResourceLocationURL, response.Warnings, err
-}
-
-// DeleteApplication deletes the app with the given app GUID.
-func (client *Client) DeleteApplication(appGUID string) (string, Warnings, error) {
-	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.DeleteApplicationRequest,
-		URIParams:   internal.Params{"app_guid": appGUID},
+		RequestName: internal.GetApplicationsRequest,
+		Query:       query,
 	})
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 
-	response := cloudcontroller.Response{}
-	err = client.connection.Make(request, &response)
+	var fullAppsList []Application
+	warnings, err := client.paginate(request, Application{}, func(item interface{}) error {
+		if app, ok := item.(Application); ok {
+			fullAppsList = append(fullAppsList, app)
+		} else {
+			return ccerror.UnknownObjectInListError{
+				Expected:   Application{},
+				Unexpected: item,
+			}
+		}
+		return nil
+	})
 
-	return response.ResourceLocationURL, response.Warnings, err
+	return fullAppsList, warnings, err
 }
 
 // UpdateApplication updates an application with the given settings.
@@ -195,10 +166,10 @@ func (client *Client) UpdateApplication(app Application) (Application, Warnings,
 	return responseApp, response.Warnings, err
 }
 
-// StopApplication stops the given application.
-func (client *Client) StopApplication(appGUID string) (Application, Warnings, error) {
+// UpdateApplicationStart starts the given application.
+func (client *Client) UpdateApplicationStart(appGUID string) (Application, Warnings, error) {
 	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.PostApplicationStopRequest,
+		RequestName: internal.PostApplicationActionStartRequest,
 		URIParams:   map[string]string{"app_guid": appGUID},
 	})
 	if err != nil {
@@ -214,10 +185,10 @@ func (client *Client) StopApplication(appGUID string) (Application, Warnings, er
 	return responseApp, response.Warnings, err
 }
 
-// StartApplication starts the given application.
-func (client *Client) StartApplication(appGUID string) (Application, Warnings, error) {
+// UpdateApplicationStop stops the given application.
+func (client *Client) UpdateApplicationStop(appGUID string) (Application, Warnings, error) {
 	request, err := client.newHTTPRequest(requestOptions{
-		RequestName: internal.PostApplicationStartRequest,
+		RequestName: internal.PostApplicationActionStopRequest,
 		URIParams:   map[string]string{"app_guid": appGUID},
 	})
 	if err != nil {

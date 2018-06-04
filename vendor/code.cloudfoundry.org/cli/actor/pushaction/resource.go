@@ -23,7 +23,7 @@ func (actor Actor) CreateArchive(config ApplicationConfig) (string, error) {
 	}
 	if err != nil {
 		log.WithField("path", config.Path).Errorln("archiving resources:", err)
-		return "", err
+		return archivePath, err
 	}
 	log.WithField("archivePath", archivePath).Debug("archive created")
 	return archivePath, nil
@@ -106,6 +106,44 @@ func (actor Actor) UploadPackageWithArchive(config ApplicationConfig, archivePat
 	eventStream <- UploadWithArchiveComplete
 	warnings, err = actor.V2Actor.PollJob(job)
 	allWarnings = append(allWarnings, Warnings(warnings)...)
+
+	return allWarnings, err
+}
+
+func (actor Actor) UploadDroplet(config ApplicationConfig, dropletPath string, progressbar ProgressBar, eventStream chan<- Event) (Warnings, error) {
+	log.Info("uploading droplet")
+	droplet, err := os.Open(dropletPath)
+	if err != nil {
+		log.WithField("dropletPath", dropletPath).WithError(err).Errorln("opening droplet")
+		return nil, err
+	}
+	defer droplet.Close()
+
+	dropletInfo, err := droplet.Stat()
+	if err != nil {
+		log.WithField("dropletPath", dropletPath).WithError(err).Errorln("stat droplet")
+		return nil, err
+	}
+
+	log.WithFields(log.Fields{
+		"app_guid":     config.DesiredApplication.GUID,
+		"droplet_size": dropletInfo.Size(),
+	}).Debug("uploading droplet")
+
+	eventStream <- UploadingDroplet
+	reader := progressbar.NewProgressBarWrapper(droplet, dropletInfo.Size())
+
+	var allWarnings Warnings
+	job, warnings, err := actor.V2Actor.UploadDroplet(config.DesiredApplication.GUID, reader, dropletInfo.Size())
+	allWarnings = append(allWarnings, warnings...)
+
+	if err != nil {
+		return allWarnings, err
+	}
+
+	eventStream <- UploadDropletComplete
+	pollWarnings, err := actor.V2Actor.PollJob(job)
+	allWarnings = append(allWarnings, pollWarnings...)
 
 	return allWarnings, err
 }

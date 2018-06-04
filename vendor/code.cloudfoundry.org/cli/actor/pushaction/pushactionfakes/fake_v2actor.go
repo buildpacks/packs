@@ -38,6 +38,15 @@ type FakeV2Actor struct {
 		result1 v2action.Warnings
 		result2 error
 	}
+	CloudControllerAPIVersionStub        func() string
+	cloudControllerAPIVersionMutex       sync.RWMutex
+	cloudControllerAPIVersionArgsForCall []struct{}
+	cloudControllerAPIVersionReturns     struct {
+		result1 string
+	}
+	cloudControllerAPIVersionReturnsOnCall map[int]struct {
+		result1 string
+	}
 	CreateApplicationStub        func(application v2action.Application) (v2action.Application, v2action.Warnings, error)
 	createApplicationMutex       sync.RWMutex
 	createApplicationArgsForCall []struct {
@@ -284,6 +293,23 @@ type FakeV2Actor struct {
 		result2 v2action.Warnings
 		result3 error
 	}
+	UploadDropletStub        func(appGUID string, droplet io.Reader, dropletLength int64) (v2action.Job, v2action.Warnings, error)
+	uploadDropletMutex       sync.RWMutex
+	uploadDropletArgsForCall []struct {
+		appGUID       string
+		droplet       io.Reader
+		dropletLength int64
+	}
+	uploadDropletReturns struct {
+		result1 v2action.Job
+		result2 v2action.Warnings
+		result3 error
+	}
+	uploadDropletReturnsOnCall map[int]struct {
+		result1 v2action.Job
+		result2 v2action.Warnings
+		result3 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -390,6 +416,46 @@ func (fake *FakeV2Actor) BindServiceByApplicationAndServiceInstanceReturnsOnCall
 		result1 v2action.Warnings
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeV2Actor) CloudControllerAPIVersion() string {
+	fake.cloudControllerAPIVersionMutex.Lock()
+	ret, specificReturn := fake.cloudControllerAPIVersionReturnsOnCall[len(fake.cloudControllerAPIVersionArgsForCall)]
+	fake.cloudControllerAPIVersionArgsForCall = append(fake.cloudControllerAPIVersionArgsForCall, struct{}{})
+	fake.recordInvocation("CloudControllerAPIVersion", []interface{}{})
+	fake.cloudControllerAPIVersionMutex.Unlock()
+	if fake.CloudControllerAPIVersionStub != nil {
+		return fake.CloudControllerAPIVersionStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.cloudControllerAPIVersionReturns.result1
+}
+
+func (fake *FakeV2Actor) CloudControllerAPIVersionCallCount() int {
+	fake.cloudControllerAPIVersionMutex.RLock()
+	defer fake.cloudControllerAPIVersionMutex.RUnlock()
+	return len(fake.cloudControllerAPIVersionArgsForCall)
+}
+
+func (fake *FakeV2Actor) CloudControllerAPIVersionReturns(result1 string) {
+	fake.CloudControllerAPIVersionStub = nil
+	fake.cloudControllerAPIVersionReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeV2Actor) CloudControllerAPIVersionReturnsOnCall(i int, result1 string) {
+	fake.CloudControllerAPIVersionStub = nil
+	if fake.cloudControllerAPIVersionReturnsOnCall == nil {
+		fake.cloudControllerAPIVersionReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.cloudControllerAPIVersionReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
 }
 
 func (fake *FakeV2Actor) CreateApplication(application v2action.Application) (v2action.Application, v2action.Warnings, error) {
@@ -1276,6 +1342,62 @@ func (fake *FakeV2Actor) UploadApplicationPackageReturnsOnCall(i int, result1 v2
 	}{result1, result2, result3}
 }
 
+func (fake *FakeV2Actor) UploadDroplet(appGUID string, droplet io.Reader, dropletLength int64) (v2action.Job, v2action.Warnings, error) {
+	fake.uploadDropletMutex.Lock()
+	ret, specificReturn := fake.uploadDropletReturnsOnCall[len(fake.uploadDropletArgsForCall)]
+	fake.uploadDropletArgsForCall = append(fake.uploadDropletArgsForCall, struct {
+		appGUID       string
+		droplet       io.Reader
+		dropletLength int64
+	}{appGUID, droplet, dropletLength})
+	fake.recordInvocation("UploadDroplet", []interface{}{appGUID, droplet, dropletLength})
+	fake.uploadDropletMutex.Unlock()
+	if fake.UploadDropletStub != nil {
+		return fake.UploadDropletStub(appGUID, droplet, dropletLength)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fake.uploadDropletReturns.result1, fake.uploadDropletReturns.result2, fake.uploadDropletReturns.result3
+}
+
+func (fake *FakeV2Actor) UploadDropletCallCount() int {
+	fake.uploadDropletMutex.RLock()
+	defer fake.uploadDropletMutex.RUnlock()
+	return len(fake.uploadDropletArgsForCall)
+}
+
+func (fake *FakeV2Actor) UploadDropletArgsForCall(i int) (string, io.Reader, int64) {
+	fake.uploadDropletMutex.RLock()
+	defer fake.uploadDropletMutex.RUnlock()
+	return fake.uploadDropletArgsForCall[i].appGUID, fake.uploadDropletArgsForCall[i].droplet, fake.uploadDropletArgsForCall[i].dropletLength
+}
+
+func (fake *FakeV2Actor) UploadDropletReturns(result1 v2action.Job, result2 v2action.Warnings, result3 error) {
+	fake.UploadDropletStub = nil
+	fake.uploadDropletReturns = struct {
+		result1 v2action.Job
+		result2 v2action.Warnings
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeV2Actor) UploadDropletReturnsOnCall(i int, result1 v2action.Job, result2 v2action.Warnings, result3 error) {
+	fake.UploadDropletStub = nil
+	if fake.uploadDropletReturnsOnCall == nil {
+		fake.uploadDropletReturnsOnCall = make(map[int]struct {
+			result1 v2action.Job
+			result2 v2action.Warnings
+			result3 error
+		})
+	}
+	fake.uploadDropletReturnsOnCall[i] = struct {
+		result1 v2action.Job
+		result2 v2action.Warnings
+		result3 error
+	}{result1, result2, result3}
+}
+
 func (fake *FakeV2Actor) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -1283,6 +1405,8 @@ func (fake *FakeV2Actor) Invocations() map[string][][]interface{} {
 	defer fake.mapRouteToApplicationMutex.RUnlock()
 	fake.bindServiceByApplicationAndServiceInstanceMutex.RLock()
 	defer fake.bindServiceByApplicationAndServiceInstanceMutex.RUnlock()
+	fake.cloudControllerAPIVersionMutex.RLock()
+	defer fake.cloudControllerAPIVersionMutex.RUnlock()
 	fake.createApplicationMutex.RLock()
 	defer fake.createApplicationMutex.RUnlock()
 	fake.createRouteMutex.RLock()
@@ -1315,6 +1439,8 @@ func (fake *FakeV2Actor) Invocations() map[string][][]interface{} {
 	defer fake.updateApplicationMutex.RUnlock()
 	fake.uploadApplicationPackageMutex.RLock()
 	defer fake.uploadApplicationPackageMutex.RUnlock()
+	fake.uploadDropletMutex.RLock()
+	defer fake.uploadDropletMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

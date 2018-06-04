@@ -7,13 +7,17 @@ import (
 	"code.cloudfoundry.org/cli/actor/pushaction"
 	"code.cloudfoundry.org/cli/actor/sharedaction"
 	"code.cloudfoundry.org/cli/actor/v2action"
+	"code.cloudfoundry.org/cli/actor/v3action"
+	"code.cloudfoundry.org/cli/api/cloudcontroller/ccversion"
 	"code.cloudfoundry.org/cli/command"
 	"code.cloudfoundry.org/cli/command/flag"
 	"code.cloudfoundry.org/cli/command/translatableerror"
 	"code.cloudfoundry.org/cli/command/v2/shared"
+	sharedV3 "code.cloudfoundry.org/cli/command/v3/shared"
 	"code.cloudfoundry.org/cli/util/configv3"
 	"code.cloudfoundry.org/cli/util/manifest"
 	"code.cloudfoundry.org/cli/util/progressbar"
+	"github.com/cloudfoundry/bosh-cli/director/template"
 	"github.com/cloudfoundry/noaa/consumer"
 	log "github.com/sirupsen/logrus"
 )
@@ -30,38 +34,43 @@ type ProgressBar interface {
 
 type V2PushActor interface {
 	Apply(config pushaction.ApplicationConfig, progressBar pushaction.ProgressBar) (<-chan pushaction.ApplicationConfig, <-chan pushaction.Event, <-chan pushaction.Warnings, <-chan error)
+	CloudControllerV2APIVersion() string
+	CloudControllerV3APIVersion() string
 	ConvertToApplicationConfigs(orgGUID string, spaceGUID string, noStart bool, apps []manifest.Application) ([]pushaction.ApplicationConfig, pushaction.Warnings, error)
 	MergeAndValidateSettingsAndManifests(cmdSettings pushaction.CommandLineSettings, apps []manifest.Application) ([]manifest.Application, error)
-	ReadManifest(pathToManifest string) ([]manifest.Application, error)
+	ReadManifest(pathToManifest string, pathsToVarsFiles []string, vars []template.VarKV) ([]manifest.Application, pushaction.Warnings, error)
 }
 
 type V2PushCommand struct {
-	OptionalArgs        flag.OptionalAppName        `positional-args:"yes"`
-	Buildpack           flag.Buildpack              `short:"b" description:"Custom buildpack by name (e.g. my-buildpack) or Git URL (e.g. 'https://github.com/cloudfoundry/java-buildpack.git') or Git URL with a branch or tag (e.g. 'https://github.com/cloudfoundry/java-buildpack.git#v3.3.0' for 'v3.3.0' tag). To use built-in buildpacks only, specify 'default' or 'null'"`
-	Command             flag.Command                `short:"c" description:"Startup command, set to null to reset to default start command"`
-	Domain              string                      `short:"d" description:"Domain (e.g. example.com)"`
-	DockerImage         flag.DockerImage            `long:"docker-image" short:"o" description:"Docker-image to be used (e.g. user/docker-image-name)"`
-	DockerUsername      string                      `long:"docker-username" description:"Repository username; used with password from environment variable CF_DOCKER_PASSWORD"`
-	PathToManifest      flag.PathWithExistenceCheck `short:"f" description:"Path to manifest"`
-	HealthCheckType     flag.HealthCheckType        `long:"health-check-type" short:"u" description:"Application health check type (Default: 'port', 'none' accepted for 'process', 'http' implies endpoint '/')"`
-	Hostname            string                      `long:"hostname" short:"n" description:"Hostname (e.g. my-subdomain)"`
-	Instances           flag.Instances              `short:"i" description:"Number of instances"`
-	DiskQuota           flag.Megabytes              `short:"k" description:"Disk limit (e.g. 256M, 1024M, 1G)"`
-	Memory              flag.Megabytes              `short:"m" description:"Memory limit (e.g. 256M, 1024M, 1G)"`
-	NoHostname          bool                        `long:"no-hostname" description:"Map the root domain to this app"`
-	NoManifest          bool                        `long:"no-manifest" description:"Ignore manifest file"`
-	NoRoute             bool                        `long:"no-route" description:"Do not map a route to this app and remove routes from previous pushes of this app"`
-	NoStart             bool                        `long:"no-start" description:"Do not start an app after pushing"`
-	AppPath             flag.PathWithExistenceCheck `short:"p" description:"Path to app directory or to a zip file of the contents of the app directory"`
-	RandomRoute         bool                        `long:"random-route" description:"Create a random route for this app"`
-	RoutePath           flag.RoutePath              `long:"route-path" description:"Path for the route"`
-	StackName           string                      `short:"s" description:"Stack to use (a stack is a pre-built file system, including an operating system, that can run apps)"`
-	HealthCheckTimeout  int                         `short:"t" description:"Time (in seconds) allowed to elapse between starting up an app and the first healthy response from the app"`
-	envCFStagingTimeout interface{}                 `environmentName:"CF_STAGING_TIMEOUT" environmentDescription:"Max wait time for buildpack staging, in minutes" environmentDefault:"15"`
-	envCFStartupTimeout interface{}                 `environmentName:"CF_STARTUP_TIMEOUT" environmentDescription:"Max wait time for app instance startup, in minutes" environmentDefault:"5"`
-	dockerPassword      interface{}                 `environmentName:"CF_DOCKER_PASSWORD" environmentDescription:"Password used for private docker repository"`
+	OptionalArgs        flag.OptionalAppName          `positional-args:"yes"`
+	Buildpack           string                        `short:"b" description:"Custom buildpack by name (e.g. my-buildpack) or Git URL (e.g. 'https://github.com/cloudfoundry/java-buildpack.git') or Git URL with a branch or tag (e.g. 'https://github.com/cloudfoundry/java-buildpack.git#v3.3.0' for 'v3.3.0' tag). To use built-in buildpacks only, specify 'default' or 'null'"`
+	Command             flag.Command                  `short:"c" description:"Startup command, set to null to reset to default start command"`
+	Domain              string                        `short:"d" description:"Domain (e.g. example.com)"`
+	DockerImage         flag.DockerImage              `long:"docker-image" short:"o" description:"Docker-image to be used (e.g. user/docker-image-name)"`
+	DockerUsername      string                        `long:"docker-username" description:"Repository username; used with password from environment variable CF_DOCKER_PASSWORD"`
+	DropletPath         flag.PathWithExistenceCheck   `long:"droplet" description:"Path to a tgz file with a pre-staged app"`
+	PathToManifest      flag.PathWithExistenceCheck   `short:"f" description:"Path to manifest"`
+	HealthCheckType     flag.HealthCheckType          `long:"health-check-type" short:"u" description:"Application health check type (Default: 'port', 'none' accepted for 'process', 'http' implies endpoint '/')"`
+	Hostname            string                        `long:"hostname" short:"n" description:"Hostname (e.g. my-subdomain)"`
+	Instances           flag.Instances                `short:"i" description:"Number of instances"`
+	DiskQuota           flag.Megabytes                `short:"k" description:"Disk limit (e.g. 256M, 1024M, 1G)"`
+	Memory              flag.Megabytes                `short:"m" description:"Memory limit (e.g. 256M, 1024M, 1G)"`
+	NoHostname          bool                          `long:"no-hostname" description:"Map the root domain to this app"`
+	NoManifest          bool                          `long:"no-manifest" description:"Ignore manifest file"`
+	NoRoute             bool                          `long:"no-route" description:"Do not map a route to this app and remove routes from previous pushes of this app"`
+	NoStart             bool                          `long:"no-start" description:"Do not start an app after pushing"`
+	AppPath             flag.PathWithExistenceCheck   `short:"p" description:"Path to app directory or to a zip file of the contents of the app directory"`
+	RandomRoute         bool                          `long:"random-route" description:"Create a random route for this app"`
+	RoutePath           flag.RoutePath                `long:"route-path" description:"Path for the route"`
+	StackName           string                        `short:"s" description:"Stack to use (a stack is a pre-built file system, including an operating system, that can run apps)"`
+	VarsFilePaths       []flag.PathWithExistenceCheck `long:"vars-file" description:"Path to a variable substitution file for manifest; can specify multiple times"`
+	Vars                []template.VarKV              `long:"var" description:"Variable key value pair for variable substitution, (e.g., name=app1); can specify multiple times"`
+	HealthCheckTimeout  int                           `short:"t" description:"Time (in seconds) allowed to elapse between starting up an app and the first healthy response from the app"`
+	envCFStagingTimeout interface{}                   `environmentName:"CF_STAGING_TIMEOUT" environmentDescription:"Max wait time for buildpack staging, in minutes" environmentDefault:"15"`
+	envCFStartupTimeout interface{}                   `environmentName:"CF_STARTUP_TIMEOUT" environmentDescription:"Max wait time for app instance startup, in minutes" environmentDefault:"5"`
+	dockerPassword      interface{}                   `environmentName:"CF_DOCKER_PASSWORD" environmentDescription:"Password used for private docker repository"`
 
-	usage           interface{} `usage:"cf push APP_NAME [-b BUILDPACK_NAME] [-c COMMAND] [-f MANIFEST_PATH | --no-manifest] [--no-start]\n   [-i NUM_INSTANCES] [-k DISK] [-m MEMORY] [-p PATH] [-s STACK] [-t HEALTH_TIMEOUT] [-u (process | port | http)]\n   [--no-route | --random-route | --hostname HOST | --no-hostname] [-d DOMAIN] [--route-path ROUTE_PATH]\n\n   cf push APP_NAME --docker-image [REGISTRY_HOST:PORT/]IMAGE[:TAG] [--docker-username USERNAME]\n   [-c COMMAND] [-f MANIFEST_PATH | --no-manifest] [--no-start]\n   [-i NUM_INSTANCES] [-k DISK] [-m MEMORY] [-t HEALTH_TIMEOUT] [-u (process | port | http)]\n   [--no-route | --random-route | --hostname HOST | --no-hostname] [-d DOMAIN] [--route-path ROUTE_PATH]\n\n   cf push -f MANIFEST_WITH_MULTIPLE_APPS_PATH [APP_NAME] [--no-start]"`
+	usage           interface{} `usage:"cf push APP_NAME [-b BUILDPACK_NAME] [-c COMMAND] [-f MANIFEST_PATH | --no-manifest] [--no-start]\n   [-i NUM_INSTANCES] [-k DISK] [-m MEMORY] [-p PATH] [-s STACK] [-t HEALTH_TIMEOUT] [-u (process | port | http)]\n   [--no-route | --random-route | --hostname HOST | --no-hostname] [-d DOMAIN] [--route-path ROUTE_PATH] [--var KEY=VALUE] [--vars-file VARS_FILE_PATH]...\n\n   cf push APP_NAME --docker-image [REGISTRY_HOST:PORT/]IMAGE[:TAG] [--docker-username USERNAME]\n   [-c COMMAND] [-f MANIFEST_PATH | --no-manifest] [--no-start]\n   [-i NUM_INSTANCES] [-k DISK] [-m MEMORY] [-t HEALTH_TIMEOUT] [-u (process | port | http)]\n   [--no-route | --random-route | --hostname HOST | --no-hostname] [-d DOMAIN] [--route-path ROUTE_PATH] [--var KEY=VALUE] [--vars-file VARS_FILE_PATH]...\n\n   cf push APP_NAME --droplet DROPLET_PATH\n   [-c COMMAND] [-f MANIFEST_PATH | --no-manifest] [--no-start]\n   [-i NUM_INSTANCES] [-k DISK] [-m MEMORY] [-t HEALTH_TIMEOUT] [-u (process | port | http)]\n   [--no-route | --random-route | --hostname HOST | --no-hostname] [-d DOMAIN] [--route-path ROUTE_PATH] [--var KEY=VALUE] [--vars-file VARS_FILE_PATH]...\n\n   cf push -f MANIFEST_WITH_MULTIPLE_APPS_PATH [APP_NAME] [--no-start]"`
 	relatedCommands interface{} `related_commands:"apps, create-app-manifest, logs, ssh, start"`
 
 	UI          command.UI
@@ -83,9 +92,18 @@ func (cmd *V2PushCommand) Setup(config command.Config, ui command.UI) error {
 	if err != nil {
 		return err
 	}
+
+	ccClientV3, _, err := sharedV3.NewClients(config, ui, true)
+	if err != nil {
+		return err
+	}
+
 	v2Actor := v2action.NewActor(ccClient, uaaClient, config)
+	v3Actor := v3action.NewActor(ccClientV3, config, sharedActor, nil)
+
 	cmd.RestartActor = v2Actor
-	cmd.Actor = pushaction.NewActor(v2Actor, sharedActor)
+	cmd.Actor = pushaction.NewActor(v2Actor, v3Actor, sharedActor)
+
 	cmd.SharedActor = sharedActor
 	cmd.NOAAClient = shared.NewNOAAClient(ccClient.DopplerEndpoint(), config, uaaClient, ui)
 
@@ -94,7 +112,18 @@ func (cmd *V2PushCommand) Setup(config command.Config, ui command.UI) error {
 }
 
 func (cmd V2PushCommand) Execute(args []string) error {
-	// cmd.UI.DisplayWarning(command.ExperimentalWarning)
+	if cmd.DropletPath != "" {
+		if err := command.MinimumAPIVersionCheck(cmd.Actor.CloudControllerV2APIVersion(), ccversion.MinVersionDropletUploadV2, "Option '--droplet'"); err != nil {
+			return err
+		}
+	}
+
+	// if len(cmd.Buildpacks) > 1 {
+	// 	if err := command.MinimumAPIVersionCheck(cmd.Actor.CloudControllerV3APIVersion(), ccversion.MinVersionManifestBuildpacksV3, "Multiple option '-b'"); err != nil {
+	// 		return err
+	// 	}
+	// }
+
 	err := cmd.SharedActor.CheckTarget(true, true)
 	if err != nil {
 		return err
@@ -125,6 +154,14 @@ func (cmd V2PushCommand) Execute(args []string) error {
 		log.Errorln("merging manifest:", err)
 		return err
 	}
+
+	// for _, manifestApplication := range manifestApplications {
+	// 	if len(manifestApplication.Buildpacks) > 0 {
+	// 		if err = command.MinimumAPIVersionCheck(cmd.Actor.CloudControllerV3APIVersion(), ccversion.MinVersionManifestBuildpacksV3, "'buildpacks' in manifest"); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 
 	cmd.UI.DisplayText("Getting app info...")
 
@@ -226,8 +263,8 @@ func (cmd V2PushCommand) GetCommandLineSettings() (pushaction.CommandLineSetting
 	}
 
 	config := pushaction.CommandLineSettings{
-		Buildpack:            cmd.Buildpack.FilteredString, // -b
-		Command:              cmd.Command.FilteredString,   // -c
+		Buildpack:            cmd.Buildpack,              // -b
+		Command:              cmd.Command.FilteredString, // -c
 		CurrentDirectory:     pwd,
 		DefaultRouteDomain:   cmd.Domain,               // -d
 		DefaultRouteHostname: cmd.Hostname,             // -n/--hostname
@@ -235,6 +272,7 @@ func (cmd V2PushCommand) GetCommandLineSettings() (pushaction.CommandLineSetting
 		DockerImage:          cmd.DockerImage.Path,     // -o
 		DockerPassword:       dockerPassword,           // ENV - CF_DOCKER_PASSWORD
 		DockerUsername:       cmd.DockerUsername,       // --docker-username
+		DropletPath:          string(cmd.DropletPath),  // --droplet
 		HealthCheckTimeout:   cmd.HealthCheckTimeout,   // -t
 		HealthCheckType:      cmd.HealthCheckType.Type, // -u/--health-check-type
 		Instances:            cmd.Instances.NullInt,    // -i
@@ -253,8 +291,9 @@ func (cmd V2PushCommand) GetCommandLineSettings() (pushaction.CommandLineSetting
 }
 
 func (cmd V2PushCommand) findAndReadManifestWithFlavorText(settings pushaction.CommandLineSettings) ([]manifest.Application, error) {
-	var pathToManifest string
-
+	var (
+		pathToManifest string
+	)
 	switch {
 	case cmd.NoManifest:
 		log.Debug("skipping reading of manifest")
@@ -316,6 +355,11 @@ func (cmd V2PushCommand) findAndReadManifestWithFlavorText(settings pushaction.C
 		return nil, nil
 	}
 
+	var pathsToVarsFiles []string
+	for _, path := range cmd.VarsFilePaths {
+		pathsToVarsFiles = append(pathsToVarsFiles, string(path))
+	}
+
 	cmd.UI.DisplayTextWithFlavor("Pushing from manifest to org {{.OrgName}} / space {{.SpaceName}} as {{.Username}}...", map[string]interface{}{
 		"OrgName":   cmd.Config.TargetedOrganization().Name,
 		"SpaceName": cmd.Config.TargetedSpace().Name,
@@ -325,7 +369,11 @@ func (cmd V2PushCommand) findAndReadManifestWithFlavorText(settings pushaction.C
 	cmd.UI.DisplayText("Using manifest file {{.Path}}", map[string]interface{}{
 		"Path": pathToManifest,
 	})
-	return cmd.Actor.ReadManifest(pathToManifest)
+
+	apps, warnings, err := cmd.Actor.ReadManifest(pathToManifest, pathsToVarsFiles, cmd.Vars)
+	cmd.UI.DisplayWarnings(warnings)
+
+	return apps, err
 }
 
 func (cmd V2PushCommand) processApplyStreams(
@@ -398,6 +446,10 @@ func (cmd V2PushCommand) processEvent(user configv3.User, appConfig pushaction.A
 	case pushaction.UploadingApplication:
 		cmd.UI.DisplayText("All files found in remote cache; nothing to upload.")
 		cmd.UI.DisplayText("Waiting for API to complete processing files...")
+	case pushaction.UploadingDroplet:
+		cmd.UI.DisplayText("Uploading droplet...")
+		log.Debug("starting progress bar")
+		cmd.ProgressBar.Ready()
 	case pushaction.UploadingApplicationWithArchive:
 		cmd.UI.DisplayText("Uploading files...")
 		log.Debug("starting progress bar")
@@ -408,6 +460,10 @@ func (cmd V2PushCommand) processEvent(user configv3.User, appConfig pushaction.A
 		cmd.ProgressBar.Complete()
 		cmd.UI.DisplayNewline()
 		cmd.UI.DisplayText("Waiting for API to complete processing files...")
+	case pushaction.UploadDropletComplete:
+		cmd.ProgressBar.Complete()
+		cmd.UI.DisplayNewline()
+		cmd.UI.DisplayText("Waiting for API to complete processing droplet...")
 	case pushaction.Complete:
 		return true
 	default:
@@ -418,11 +474,25 @@ func (cmd V2PushCommand) processEvent(user configv3.User, appConfig pushaction.A
 
 func (cmd V2PushCommand) validateArgs() error {
 	switch {
+	case cmd.DropletPath != "" && cmd.AppPath != "":
+		return translatableerror.ArgumentCombinationError{
+			Args: []string{"--droplet", "-p"},
+		}
+	case cmd.DropletPath != "" && cmd.DockerImage.Path != "":
+		return translatableerror.ArgumentCombinationError{
+			Args: []string{"--droplet", "--docker-image", "-o"},
+		}
+	// ArgumentCombinationError trumps RequiredArgsError in this case (when
+	// DockerImage unspecified)
+	case cmd.DropletPath != "" && cmd.DockerUsername != "":
+		return translatableerror.ArgumentCombinationError{
+			Args: []string{"--droplet", "--docker-username", "-p"},
+		}
 	case cmd.DockerImage.Path != "" && cmd.AppPath != "":
 		return translatableerror.ArgumentCombinationError{
 			Args: []string{"--docker-image, -o", "-p"},
 		}
-	case cmd.DockerImage.Path != "" && cmd.Buildpack.IsSet:
+	case cmd.DockerImage.Path != "" && cmd.Buildpack != "":
 		return translatableerror.ArgumentCombinationError{
 			Args: []string{"-b", "--docker-image, -o"},
 		}

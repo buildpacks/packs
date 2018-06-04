@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/google/go-containerregistry/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/sclevine/packs"
 	"github.com/sclevine/packs/img"
