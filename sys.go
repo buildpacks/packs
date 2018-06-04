@@ -14,6 +14,7 @@ const (
 	CodeInvalidArgs = iota + 2
 	CodeInvalidEnv
 	CodeNotFound
+	CodeFailedDetect
 	CodeFailedBuild
 	CodeFailedLaunch
 	CodeFailedUpdate

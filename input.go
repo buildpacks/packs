@@ -20,6 +20,7 @@ const (
 	EnvSlugPath     = "PACK_SLUG_PATH"
 	EnvMetadataPath = "PACK_METADATA_PATH"
 	EnvGroupPath    = "PACK_GROUP_PATH"
+	EnvListPath     = "PACK_LIST_PATH"
 
 	EnvStackName = "PACK_STACK_NAME"
 	EnvUseDaemon = "PACK_USE_DAEMON"
@@ -39,6 +40,10 @@ func InputMetadataPath(path *string) {
 
 func InputGroupPath(path *string) {
 	flag.StringVar(path, "group", os.Getenv(EnvGroupPath), "file containing buildpack group")
+}
+
+func InputListPath(path *string) {
+	flag.StringVar(path, "list", os.Getenv(EnvListPath), "file containing list of buildpack groups")
 }
 
 func InputStackName(name *string) {
