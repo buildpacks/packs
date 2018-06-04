@@ -16,6 +16,6 @@ ENV PACK_STACK_NAME packs/${stack}:run
 
 # TODO: remove
 ENV PACK_DROPLET_PATH ./droplet.tgz
-ENV PACK_DROPLET_METADATA_PATH ./result.json
+ENV PACK_METADATA_PATH ./result.json
 
 ENTRYPOINT ["/packs/exporter"]
