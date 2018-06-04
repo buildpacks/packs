@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 
 	"github.com/sclevine/packs"
@@ -60,7 +59,6 @@ func export() error {
 
 	var (
 		repoImage v1.Image
-		sources   []name.Repository
 		metadata  packs.BuildMetadata
 	)
 	if dropletPath != "" {
@@ -76,12 +74,12 @@ func export() error {
 			return packs.FailErr(err, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
-		repoImage, sources, err = img.Append(stackStore, layer)
+		repoImage, err = img.Append(stackStore, layer)
 		if err != nil {
 			return packs.FailErr(err, "append droplet to", stackName)
 		}
 	} else {
-		repoImage, sources, err = img.Rebase(repoStore, stackStore, func(labels map[string]string) (img.Store, error) {
+		repoImage, err = img.Rebase(repoStore, stackStore, func(labels map[string]string) (img.Store, error) {
 			if err := json.Unmarshal([]byte(labels[packs.BuildLabel]), &metadata); err != nil {
 				return nil, packs.FailErr(err, "get build metadata for", repoName)
 			}
@@ -106,7 +104,7 @@ func export() error {
 	if err != nil {
 		return packs.FailErr(err, "label", repoName)
 	}
-	if err := repoStore.Write(repoImage, sources...); err != nil {
+	if err := repoStore.Write(repoImage); err != nil {
 		return packs.FailErrCode(err, packs.CodeFailedUpdate, "write", repoName)
 	}
 	return nil
