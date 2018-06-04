@@ -29,8 +29,8 @@ func NewRegistry(ref string) (Store, error) {
 }
 
 type registryStore struct {
-	ref    name.Reference
-	auth   authn.Authenticator
+	ref  name.Reference
+	auth authn.Authenticator
 }
 
 func (r *registryStore) Ref() name.Reference {

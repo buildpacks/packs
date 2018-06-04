@@ -21,8 +21,8 @@ const (
 	EnvMetadataPath = "PACK_METADATA_PATH"
 	EnvGroupPath    = "PACK_GROUP_PATH"
 
-	EnvStackName    = "PACK_STACK_NAME"
-	EnvUseDaemon    = "PACK_USE_DAEMON"
+	EnvStackName = "PACK_STACK_NAME"
+	EnvUseDaemon = "PACK_USE_DAEMON"
 )
 
 func InputDropletPath(path *string) {
