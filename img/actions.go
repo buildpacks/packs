@@ -55,19 +55,21 @@ func Label(image v1.Image, k, v string) (v1.Image, error) {
 	return mutate.Config(image, config)
 }
 
-type dockerConfig struct {
-	CredHelpers map[string]string `json:"credHelpers"`
-}
-
 func SetupCredHelpers(refs ...string) error {
 	dockerPath := filepath.Join(os.Getenv("HOME"), ".docker")
 	configPath := filepath.Join(dockerPath, "config.json")
-	if _, err := os.Stat(configPath); err == nil {
-		return nil
+	config := map[string]interface{}{}
+	credHelpers := map[string]string{}
+	config["credHelpers"] = credHelpers
+	if f, err := os.Open(configPath); err == nil {
+		err := json.NewDecoder(f).Decode(&config)
+		if f.Close(); err != nil {
+			return err
+		}
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	credHelpers := map[string]string{}
+	added := false
 	for _, refStr := range refs {
 		ref, err := name.ParseReference(refStr, name.WeakValidation)
 		if err != nil {
@@ -87,7 +89,11 @@ func SetupCredHelpers(refs ...string) error {
 				continue
 			}
 			credHelpers[registry] = ch.helper
+			added = true
 		}
+	}
+	if !added {
+		return nil
 	}
 	if err := os.MkdirAll(dockerPath, 0777); err != nil {
 		return err
@@ -97,7 +103,5 @@ func SetupCredHelpers(refs ...string) error {
 		return err
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(dockerConfig{
-		CredHelpers: credHelpers,
-	})
+	return json.NewEncoder(f).Encode(config)
 }
