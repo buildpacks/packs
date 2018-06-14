@@ -87,7 +87,7 @@ func parseProcfile(path string) (string, error) {
 		for _, line := range strings.Split(procfile, "\n") {
 			array := strings.SplitAfterN(line, ":", 2)
 			if len(array) == 2 {
-				processes[array[0]] = array[1]
+				processes[array[0]] = strings.TrimSpace(array[1])
 			}
 		}
 
