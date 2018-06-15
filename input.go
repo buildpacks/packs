@@ -16,12 +16,13 @@ const (
 	EnvAppMemory = "PACK_APP_MEM"
 	EnvAppFds    = "PACK_APP_FDS"
 
-	EnvDropletPath  = "PACK_DROPLET_PATH"
-	EnvSlugPath     = "PACK_SLUG_PATH"
-	EnvMetadataPath = "PACK_METADATA_PATH"
-	EnvBPListPath   = "PACK_BP_LIST_PATH"
-	EnvBPOrderPath  = "PACK_BP_ORDER_PATH"
-	EnvBPGroupPath  = "PACK_BP_GROUP_PATH"
+	EnvDropletPath    = "PACK_DROPLET_PATH"
+	EnvSlugPath       = "PACK_SLUG_PATH"
+	EnvMetadataPath   = "PACK_METADATA_PATH"
+	EnvBPListPath     = "PACK_BP_LIST_PATH"
+	EnvBPOrderPath    = "PACK_BP_ORDER_PATH"
+	EnvBPGroupPath    = "PACK_BP_GROUP_PATH"
+	EnvDetectInfoPath = "PACK_DETECT_INFO_PATH"
 
 	EnvStackName = "PACK_STACK_NAME"
 	EnvUseDaemon = "PACK_USE_DAEMON"
@@ -49,6 +50,10 @@ func InputBPOrderPath(path *string) {
 
 func InputBPGroupPath(path *string) {
 	flag.StringVar(path, "group", os.Getenv(EnvBPGroupPath), "file containing a buildpack group")
+}
+
+func InputDetectInfoPath(path *string) {
+	flag.StringVar(path, "info", os.Getenv(EnvDetectInfoPath), "file containing detection info")
 }
 
 func InputStackName(name *string) {
