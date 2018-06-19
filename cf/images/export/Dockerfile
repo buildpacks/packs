@@ -13,6 +13,7 @@ ARG stack
 COPY --from=helpers /go/bin /usr/local/bin
 
 ENV PACK_STACK_NAME packs/${stack}:run
+ENV PACK_USE_HELPERS true
 
 # TODO: remove
 ENV PACK_DROPLET_PATH ./droplet.tgz

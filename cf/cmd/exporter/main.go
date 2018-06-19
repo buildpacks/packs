@@ -20,6 +20,7 @@ var (
 	repoName     string
 	stackName    string
 	useDaemon    bool
+	useHelpers   bool
 )
 
 func init() {
@@ -27,6 +28,7 @@ func init() {
 	packs.InputMetadataPath(&metadataPath)
 	packs.InputStackName(&stackName)
 	packs.InputUseDaemon(&useDaemon)
+	packs.InputUseHelpers(&useHelpers)
 }
 
 func main() {
@@ -39,8 +41,10 @@ func main() {
 }
 
 func export() error {
-	if err := img.SetupCredHelpers(repoName, stackName); err != nil {
-		return packs.FailErr(err, "setup credential helper")
+	if useHelpers {
+		if err := img.SetupCredHelpers(repoName, stackName); err != nil {
+			return packs.FailErr(err, "setup credential helpers")
+		}
 	}
 
 	newRepoStore := img.NewRegistry
