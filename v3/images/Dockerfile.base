@@ -1,0 +1,14 @@
+ARG stack
+ARG go_version=1.10.1
+FROM golang:${go_version} as lifecycle
+ARG lifecycle_ref=master
+ARG lifecycle_repo=github.com/sclevine/lifecycle
+
+WORKDIR "${lifecycle_repo}"
+RUN git clone --single-branch "https://${lifecycle_repo}" . && \
+  git checkout "${lifecycle_ref}"
+RUN CGO_ENABLED=0 go install -a -installsuffix static "${lifecycle_repo}/..."
+
+FROM alpine:3.7
+COPY --from=lifecycle /go/bin /packs
+WORKDIR /workspace
