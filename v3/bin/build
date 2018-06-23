@@ -28,7 +28,7 @@ echo 'groups = [{ repository = "packs/v3", buildpacks = ["sh.packs.samples.build
 docker pull "${stack}"
 
 docker build --build-arg "stack=${stack}" -t packs/v3:latest -f images/Dockerfile.base .
-docker build --build-arg "stack=${stack}" -t packs/v3:detect images/detect
+docker build -t packs/v3:detect images/detect
 docker build -t packs/v3:build images/build
 docker build -t packs/v3:run images/run
 

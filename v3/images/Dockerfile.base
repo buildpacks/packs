@@ -2,7 +2,7 @@ ARG stack
 ARG go_version=1.10.3
 
 FROM golang:${go_version} as lifecycle
-ARG lifecycle_ref=33104de
+ARG lifecycle_ref=ff0ce38
 ARG lifecycle_repo=github.com/sclevine/lifecycle
 
 WORKDIR /go/src/${lifecycle_repo}
