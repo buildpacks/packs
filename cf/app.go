@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/sclevine/packs"
+	"github.com/buildpack/packs"
 )
 
 const (

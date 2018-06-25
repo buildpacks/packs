@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sclevine/packs"
+	"github.com/buildpack/packs"
 )
 
 const (

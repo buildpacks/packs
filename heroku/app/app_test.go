@@ -5,7 +5,7 @@ import (
 
 	"github.com/sclevine/spec"
 
-	pkgapp "github.com/sclevine/packs/heroku/app"
+	pkgapp "github.com/buildpack/packs/heroku/app"
 )
 
 type cmpMap []struct {

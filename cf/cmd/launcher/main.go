@@ -7,8 +7,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/sclevine/packs"
-	"github.com/sclevine/packs/cf"
+	"github.com/buildpack/packs"
+	"github.com/buildpack/packs/cf"
 )
 
 const (

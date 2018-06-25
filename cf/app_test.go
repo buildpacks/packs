@@ -12,8 +12,8 @@ import (
 
 	"github.com/sclevine/spec"
 
-	"github.com/sclevine/packs"
-	"github.com/sclevine/packs/cf"
+	"github.com/buildpack/packs"
+	"github.com/buildpack/packs/cf"
 )
 
 var memory = flag.Uint64("memory", 1024, "expected memory usage in mb")

@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
-	"github.com/sclevine/packs"
-	"github.com/sclevine/packs/img"
+	"github.com/buildpack/packs"
+	"github.com/buildpack/packs/img"
 )
 
 var (

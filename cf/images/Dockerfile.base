@@ -21,7 +21,7 @@ RUN git clone --single-branch "https://${diego_repo}" . && \
 RUN GOPATH=/diego CGO_ENABLED=0 go install -a -installsuffix static "${bal_repo}/..."
 
 FROM golang:$go_version as packs
-ARG packs_repo=github.com/sclevine/packs
+ARG packs_repo=github.com/buildpack/packs
 
 COPY . "src/${packs_repo}"
 RUN CGO_ENABLED=0 go install -a -installsuffix static "${packs_repo}/cf/cmd/..."

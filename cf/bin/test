@@ -10,7 +10,7 @@ if [[ ! -f ${stack}.json ]]; then
   exit 1
 fi
 
-repo=github.com/sclevine/packs
+repo=github.com/buildpack/packs
 run() { docker run --rm -v "$(pwd)/..:/go/src/${repo}" -w "/go/src/${repo}/cf" "$@"; }
 
 run "packs/${stack}-test" -run TestApp

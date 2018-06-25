@@ -11,8 +11,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/sclevine/packs"
-	herokuapp "github.com/sclevine/packs/heroku/app"
+	"github.com/buildpack/packs"
+	herokuapp "github.com/buildpack/packs/heroku/app"
 )
 
 type ErrProcfileNoProcess string

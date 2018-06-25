@@ -8,9 +8,9 @@ stack_version=${1:-"16"}
 stack="heroku-$stack_version"
 echo "Building stack: $stack"
 
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/build/builder github.com/sclevine/packs/heroku/builder
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/launcher github.com/sclevine/packs/heroku/launcher
-GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/shell github.com/sclevine/packs/heroku/shell
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/build/builder github.com/buildpack/packs/heroku/builder
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/launcher github.com/buildpack/packs/heroku/launcher
+GOOS=linux CGO_ENABLED=0 go build -a -installsuffix static -o images/run/shell github.com/buildpack/packs/heroku/shell
 
 docker pull "heroku/heroku:${stack_version}-build"
 

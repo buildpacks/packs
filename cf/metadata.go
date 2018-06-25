@@ -2,7 +2,7 @@ package cf
 
 import (
 	"code.cloudfoundry.org/buildpackapplifecycle"
-	"github.com/sclevine/packs"
+	"github.com/buildpack/packs"
 )
 
 type DropletMetadata struct {

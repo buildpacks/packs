@@ -17,8 +17,8 @@ import (
 	bal "code.cloudfoundry.org/buildpackapplifecycle"
 	"code.cloudfoundry.org/cli/cf/appfiles"
 
-	"github.com/sclevine/packs"
-	"github.com/sclevine/packs/cf"
+	"github.com/buildpack/packs"
+	"github.com/buildpack/packs/cf"
 )
 
 var (
