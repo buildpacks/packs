@@ -2,6 +2,7 @@ package img
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,11 +16,12 @@ import (
 func Append(base v1.Image, tar string) (v1.Image, error) {
 	layer, err := tarball.LayerFromFile(tar)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get layer from file: %s", err)
 	}
+
 	image, err := mutate.AppendLayers(base, layer)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("append layer: %s", err)
 	}
 	return image, nil
 }
@@ -33,11 +35,11 @@ func Rebase(orig v1.Image, newBase v1.Image, oldBaseFinder ImageFinder) (v1.Imag
 	}
 	oldBase, err := oldBaseFinder(origConfig.Config.Labels)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("find old base: %s", err)
 	}
 	image, err := mutate.Rebase(orig, oldBase, newBase, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("rebase image: %s", err)
 	}
 	return image, nil
 }

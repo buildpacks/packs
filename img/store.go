@@ -62,7 +62,7 @@ func (d *daemonStore) Ref() name.Reference {
 }
 
 func (d *daemonStore) Image() (v1.Image, error) {
-	return daemon.Image(d.tag, nil)
+	return daemon.Image(d.tag, &daemon.ReadOptions{})
 }
 
 func (d *daemonStore) Write(image v1.Image) error {
