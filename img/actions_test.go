@@ -1,8 +1,12 @@
 package img_test
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -21,33 +25,42 @@ func Test(t *testing.T) {
 			baseStore  img.Store
 			imageTag   string
 			imageStore img.Store
+			assertNil  func(error)
 		)
+		it.Before(func() {
+			assertNil = func(err error) {
+				if err != nil {
+					t.Helper()
+					t.Fatal(err)
+				}
+			}
+		})
 
 		it.Before(func() {
 			baseTag = randStringRunes(16)
 			_, err := packs.Run("docker", "build", "-t", baseTag, "-f", "testdata/base.Dockerfile", "testdata")
-			assertNil(t, err)
+			assertNil(err)
 			baseStore, err = img.NewDaemon(baseTag)
-			assertNil(t, err)
+			assertNil(err)
 			baseImage, err = baseStore.Image()
-			assertNil(t, err)
+			assertNil(err)
 
 			imageTag = randStringRunes(16)
 			imageStore, err = img.NewDaemon(imageTag)
-			assertNil(t, err)
+			assertNil(err)
 		})
 
 		it.After(func() {
 			_, err := packs.Run("docker", "rmi", "-f", baseTag, imageTag)
-			assertNil(t, err)
+			assertNil(err)
 		})
 
 		when(".Append", func() {
 			it("appends a tarball on top of a base image", func() {
 				image, err := img.Append(baseImage, "testdata/some-appended-layer.tgz")
-				assertNil(t, err)
+				assertNil(err)
 				err = imageStore.Write(image)
-				assertNil(t, err)
+				assertNil(err)
 				output, err := packs.Run("docker", "run", "--rm", imageTag, "ls", "/layers/")
 				layers := strings.Fields(output)
 				if !reflect.DeepEqual(layers, []string{
@@ -74,7 +87,7 @@ func Test(t *testing.T) {
 			when("append fails", func() {
 				it.Before(func() {
 					_, err := packs.Run("docker", "rmi", "-f", baseTag)
-					assertNil(t, err)
+					assertNil(err)
 				})
 				it("errors", func() {
 					_, err := img.Append(baseImage, "testdata/some-appended-layer.tgz")
@@ -96,26 +109,27 @@ func Test(t *testing.T) {
 			it.Before(func() {
 				newBaseTag = randStringRunes(16)
 				_, err := packs.Run("docker", "build", "-t", newBaseTag, "-f", "testdata/newbase.Dockerfile", "testdata")
-				assertNil(t, err)
+				assertNil(err)
 				newBaseStore, err := img.NewDaemon(newBaseTag)
-				assertNil(t, err)
+				assertNil(err)
 				newBaseImage, err = newBaseStore.Image()
-				assertNil(t, err)
+				assertNil(err)
 
 				upperTag = randStringRunes(16)
 				_, err = packs.Run("docker", "build", "--build-arg=base="+baseTag, "-t", upperTag, "-f", "testdata/upper.Dockerfile", "testdata")
-				assertNil(t, err)
+				assertNil(err)
 				upperStore, err := img.NewDaemon(upperTag)
-				assertNil(t, err)
+				assertNil(err)
 				upperImage, err = upperStore.Image()
-				assertNil(t, err)
+				assertNil(err)
 			})
 
 			it("rebases image using labels", func() {
 				image, err := img.Rebase(upperImage, newBaseImage, func(labels map[string]string) (v1.Image, error) {
+					//TODO test labels
 					return baseImage, nil
 				})
-				assertNil(t, err)
+				assertNil(err)
 
 				if err := imageStore.Write(image); err != nil {
 					t.Fatal(err)
@@ -161,25 +175,82 @@ func Test(t *testing.T) {
 		when(".Label", func() {
 			it("adds labels to image", func() {
 				image, err := img.Label(baseImage, "label1", "val1")
-				assertNil(t, err)
+				assertNil(err)
 				image, err = img.Label(image, "label2", "val2")
-				assertNil(t, err)
+				assertNil(err)
 
 				if err := imageStore.Write(image); err != nil {
 					t.Fatal(err)
 				}
 
 				output, err := packs.Run("docker", "inspect", "--format={{.Config.Labels.label1}}", imageTag)
-				assertNil(t, err)
+				assertNil(err)
 				if output != "val1" {
 					t.Errorf(`expected label1 to equal "val1", got "%s"`, output)
 				}
 
 				output, err = packs.Run("docker", "inspect", "--format={{.Config.Labels.label2}}", imageTag)
-				assertNil(t, err)
+				assertNil(err)
 				if output != "val2" {
 					t.Errorf(`expected label2 to equal "val2", got "%s"`, output)
 				}
+			})
+		})
+
+		when.Focus(".SetupCredHelpers", func() {
+			var tmpDir, dockerConfig string
+
+			it.Before(func() {
+				var err error
+				tmpDir, err = ioutil.TempDir("", "actions-test")
+				assertNil(err)
+				dockerConfig = filepath.Join(tmpDir, "missing-docker-home", "docker-config.json")
+			})
+
+			it.After(func() {
+				err := os.RemoveAll(tmpDir)
+				assertNil(err)
+			})
+
+			type CredHelpers map[string]string
+			type Config struct {
+				CredHelpers CredHelpers
+			}
+
+			when("config exists", func() {
+				it.Focus("add appropriate cred helpers for any repo matching *gcr.io, *.amazonaws.*, or *azurecf.io", func() {
+					gcrRef1 := "gcr.io/some-org/some-image:some-tag"
+					gcrRef2 := "some.gcr.io/some-org/some-image:some-tag"
+					ecrRef := "some.amazonaws.some-tld/some-org/some-image:sha256some-sha"
+					azureRef1 := "azurecr.io/some-org/some-image:sha256some-sha"
+					azureRef2 := "some.azurecr.io/some-org/some-image:sha256some-sha"
+					otherRef := "some-repo/some-image:some-tag"
+
+					err := img.SetupCredHelpers(dockerConfig, gcrRef1, gcrRef2, ecrRef, azureRef1, azureRef2, otherRef)
+					assertNil(err)
+					contents, err := ioutil.ReadFile(dockerConfig)
+					assertNil(err)
+					config := &Config{}
+					json.Unmarshal(contents, config)
+					if config.CredHelpers["gcr.io"] == "" || config.CredHelpers["gcr.io"] != "gcr" {
+						t.Fatalf(`expected cred helpers to contain gcr.io:gcr, got %+v`, config.CredHelpers)
+					}
+					if config.CredHelpers["some.gcr.io"] == "" || config.CredHelpers["some.gcr.io"] != "gcr" {
+						t.Fatalf(`expected cred helpers to contain some.gcr.io:gcr, got %+v`, config.CredHelpers)
+					}
+					if config.CredHelpers["azurecr.io"] == "" || config.CredHelpers["azurecr.io"] != "acr" {
+						t.Fatalf(`expected cred helpers to contain azurecr.io:acr, got %+v`, config.CredHelpers)
+					}
+					if config.CredHelpers["some.azurecr.io"] == "" || config.CredHelpers["some.azurecr.io"] != "acr" {
+						t.Fatalf(`expected cred helpers to contain some.azurecr.io:acr, got %+v`, config.CredHelpers)
+					}
+					if config.CredHelpers["some.amazonaws.some-tld"] == "" || config.CredHelpers["some.amazonaws.some-tld"] != "ecr-login" {
+						t.Fatalf(`expected cred helpers to contain some.amazonaws.some-tld:ecr-login, got %+v`, config.CredHelpers)
+					}
+					if len(config.CredHelpers) > 5 {
+						t.Fatalf(`added unexpected cred helpers %+v`, config.CredHelpers)
+					}
+				})
 			})
 		})
 	}, spec.Parallel())
@@ -193,10 +264,4 @@ func randStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
-}
-
-func assertNil(t *testing.T, err error) {
-	if err != nil {
-		t.Fatal(err)
-	}
 }
