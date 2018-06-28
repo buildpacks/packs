@@ -1,7 +1,7 @@
 [
   {
     "name": "staticfile_buildpack",
-    "uri": "https://github.com/cloudfoundry/staticfile-buildpack/releases/download/v1.4.27/staticfile-buildpack-v1.4.27.zip"
+    "uri": "https://github.com/cloudfoundry/staticfile-buildpack/releases/download/v1.4.29/staticfile-buildpack-v1.4.29.zip"
   },
   {
     "name": "java_buildpack",
@@ -9,30 +9,30 @@
   },
   {
     "name": "ruby_buildpack",
-    "uri": "https://github.com/cloudfoundry/ruby-buildpack/releases/download/v1.7.18/ruby-buildpack-v1.7.18.zip"
+    "uri": "https://github.com/cloudfoundry/ruby-buildpack/releases/download/v1.7.21/ruby-buildpack-v1.7.21.zip"
   },
   {
     "name": "nodejs_buildpack",
-    "uri": "https://github.com/cloudfoundry/nodejs-buildpack/releases/download/v1.6.24/nodejs-buildpack-v1.6.24.zip"
+    "uri": "https://github.com/cloudfoundry/nodejs-buildpack/releases/download/v1.6.27/nodejs-buildpack-v1.6.27.zip"
   },
   {
     "name": "go_buildpack",
-    "uri": "https://github.com/cloudfoundry/go-buildpack/releases/download/v1.8.22/go-buildpack-v1.8.22.zip"
+    "uri": "https://github.com/cloudfoundry/go-buildpack/releases/download/v1.8.25/go-buildpack-v1.8.25.zip"
   },
   {
     "name": "python_buildpack",
-    "uri": "https://github.com/cloudfoundry/python-buildpack/releases/download/v1.6.15/python-buildpack-v1.6.15.zip"
+    "uri": "https://github.com/cloudfoundry/python-buildpack/releases/download/v1.6.18/python-buildpack-v1.6.18.zip"
   },
   {
     "name": "php_buildpack",
-    "uri": "https://github.com/cloudfoundry/php-buildpack/releases/download/v4.3.55/php-buildpack-v4.3.55.zip"
+    "uri": "https://github.com/cloudfoundry/php-buildpack/releases/download/v4.3.56/php-buildpack-v4.3.56.zip"
   },
   {
     "name": "dotnet_core_buildpack",
-    "uri": "https://github.com/cloudfoundry/dotnet-core-buildpack/releases/download/v2.0.6/dotnet-core-buildpack-v2.0.6.zip"
+    "uri": "https://github.com/cloudfoundry/dotnet-core-buildpack/releases/download/v2.1.2/dotnet-core-buildpack-v2.1.2.zip"
   },
   {
     "name": "binary_buildpack",
-    "uri": "https://github.com/cloudfoundry/binary-buildpack/releases/download/v1.0.18/binary-buildpack-v1.0.18.zip"
+    "uri": "https://github.com/cloudfoundry/binary-buildpack/releases/download/v1.0.21/binary-buildpack-v1.0.21.zip"
   }
 ]
