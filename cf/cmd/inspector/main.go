@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
@@ -12,12 +13,14 @@ import (
 )
 
 var (
-	refName   string
-	useDaemon bool
+	refName    string
+	useDaemon  bool
+	useHelpers bool
 )
 
 func init() {
 	packs.InputUseDaemon(&useDaemon)
+	packs.InputUseHelpers(&useHelpers)
 }
 
 func main() {
@@ -30,8 +33,10 @@ func main() {
 }
 
 func inspect() error {
-	if err := img.SetupCredHelpers(refName); err != nil {
-		return packs.FailErr(err, "setup credential helper")
+	if useHelpers {
+		if err := img.SetupCredHelpers(os.Getenv("HOME"), refName); err != nil {
+			return packs.FailErr(err, "setup credential helper")
+		}
 	}
 
 	store, err := img.NewRegistry(refName)

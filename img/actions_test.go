@@ -249,6 +249,15 @@ func Test(t *testing.T) {
 						t.Fatalf(`added unexpected cred helpers %+v`, config.CredHelpers)
 					}
 				})
+
+				when("ref is bad", func() {
+					it("errors", func() {
+						err := img.SetupCredHelpers(dockerConfig, ":some-bad-ref")
+						if err == nil {
+							t.Fatalf(`expected an error because of bad ref`)
+						}
+					})
+				})
 			})
 
 			when("config does exist", func() {

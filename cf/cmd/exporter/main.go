@@ -42,7 +42,7 @@ func main() {
 
 func export() error {
 	if useHelpers {
-		if err := img.SetupCredHelpers(repoName, stackName); err != nil {
+		if err := img.SetupCredHelpers(os.Getenv("HOME"), repoName, stackName); err != nil {
 			return packs.FailErr(err, "setup credential helpers")
 		}
 	}
