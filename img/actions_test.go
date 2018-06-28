@@ -3,6 +3,7 @@ package img_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -204,7 +205,7 @@ func Test(t *testing.T) {
 				var err error
 				tmpDir, err = ioutil.TempDir("", "actions-test")
 				assertNil(err)
-				dockerConfig = filepath.Join(tmpDir, "missing-docker-home", "docker-config.json")
+				dockerConfig = filepath.Join(tmpDir, "docker-home", "docker-config.json")
 			})
 
 			it.After(func() {
@@ -212,13 +213,8 @@ func Test(t *testing.T) {
 				assertNil(err)
 			})
 
-			type CredHelpers map[string]string
-			type Config struct {
-				CredHelpers CredHelpers
-			}
-
-			when("config exists", func() {
-				it.Focus("add appropriate cred helpers for any repo matching *gcr.io, *.amazonaws.*, or *azurecf.io", func() {
+			when("config does NOT exist", func() {
+				it("add appropriate cred helpers for any repo matching *gcr.io, *.amazonaws.*, or *azurecf.io", func() {
 					gcrRef1 := "gcr.io/some-org/some-image:some-tag"
 					gcrRef2 := "some.gcr.io/some-org/some-image:some-tag"
 					ecrRef := "some.amazonaws.some-tld/some-org/some-image:sha256some-sha"
@@ -230,25 +226,65 @@ func Test(t *testing.T) {
 					assertNil(err)
 					contents, err := ioutil.ReadFile(dockerConfig)
 					assertNil(err)
-					config := &Config{}
-					json.Unmarshal(contents, config)
-					if config.CredHelpers["gcr.io"] == "" || config.CredHelpers["gcr.io"] != "gcr" {
+					config := struct {
+						CredHelpers map[string]string
+					}{}
+					err = json.Unmarshal(contents, &config)
+					assertNil(err)
+					if config.CredHelpers["gcr.io"] != "gcr" {
 						t.Fatalf(`expected cred helpers to contain gcr.io:gcr, got %+v`, config.CredHelpers)
 					}
-					if config.CredHelpers["some.gcr.io"] == "" || config.CredHelpers["some.gcr.io"] != "gcr" {
+					if config.CredHelpers["some.gcr.io"] != "gcr" {
 						t.Fatalf(`expected cred helpers to contain some.gcr.io:gcr, got %+v`, config.CredHelpers)
 					}
-					if config.CredHelpers["azurecr.io"] == "" || config.CredHelpers["azurecr.io"] != "acr" {
+					if config.CredHelpers["azurecr.io"] != "acr" {
 						t.Fatalf(`expected cred helpers to contain azurecr.io:acr, got %+v`, config.CredHelpers)
 					}
-					if config.CredHelpers["some.azurecr.io"] == "" || config.CredHelpers["some.azurecr.io"] != "acr" {
+					if config.CredHelpers["some.azurecr.io"] != "acr" {
 						t.Fatalf(`expected cred helpers to contain some.azurecr.io:acr, got %+v`, config.CredHelpers)
 					}
-					if config.CredHelpers["some.amazonaws.some-tld"] == "" || config.CredHelpers["some.amazonaws.some-tld"] != "ecr-login" {
+					if config.CredHelpers["some.amazonaws.some-tld"] != "ecr-login" {
 						t.Fatalf(`expected cred helpers to contain some.amazonaws.some-tld:ecr-login, got %+v`, config.CredHelpers)
 					}
 					if len(config.CredHelpers) > 5 {
 						t.Fatalf(`added unexpected cred helpers %+v`, config.CredHelpers)
+					}
+				})
+			})
+
+			when("config does exist", func() {
+				it.Before(func() {
+					b, err := json.Marshal(map[string]interface{}{
+						"cred_helpers": map[string]string{"domain.com": "will be removed"},
+						"a_key":        "a_val",
+					})
+					assertNil(err)
+					os.MkdirAll(filepath.Dir(dockerConfig), 0755)
+					err = ioutil.WriteFile(dockerConfig, b, 0644)
+					assertNil(err)
+				})
+
+				it.Focus("leaves other keys unchanged, and overwrites CredHelpers", func() {
+					gcrRef := "gcr.io/some-org/some-image:some-tag"
+
+					err := img.SetupCredHelpers(dockerConfig, gcrRef)
+					assertNil(err)
+
+					contents, err := ioutil.ReadFile(dockerConfig)
+					assertNil(err)
+					fmt.Println(string(contents))
+					config := struct {
+						CredHelpers map[string]string `json:"cred_helpers"`
+						AKey        string            `json:"a_key"`
+					}{}
+					err = json.Unmarshal(contents, &config)
+					assertNil(err)
+					fmt.Println(config)
+					if !reflect.DeepEqual(config.CredHelpers, map[string]string{"gcr.io": "gcr"}) {
+						t.Fatalf(`expected cred helpers to contain gcr.io:gcr, got %+v`, config.CredHelpers)
+					}
+					if config.AKey != "a_val" {
+						t.Fatalf(`expected config to container a_key to have value a_val, got %+s`, config.AKey)
 					}
 				})
 			})

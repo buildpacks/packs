@@ -57,9 +57,8 @@ func Label(image v1.Image, k, v string) (v1.Image, error) {
 	return mutate.Config(image, config)
 }
 
-func SetupCredHelpers(refs ...string) error {
-	dockerPath := filepath.Join(os.Getenv("HOME"), ".docker")
-	configPath := filepath.Join(dockerPath, "config.json")
+func SetupCredHelpers(configPath string, refs ...string) error {
+	// configPath := filepath.Join(homePath, ".docker", "config.json")
 	config := map[string]interface{}{}
 	credHelpers := map[string]string{}
 	config["credHelpers"] = credHelpers
@@ -97,7 +96,7 @@ func SetupCredHelpers(refs ...string) error {
 	if !added {
 		return nil
 	}
-	if err := os.MkdirAll(dockerPath, 0777); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0777); err != nil {
 		return err
 	}
 	f, err := os.Create(configPath)
