@@ -60,8 +60,6 @@ func Label(image v1.Image, k, v string) (v1.Image, error) {
 func SetupCredHelpers(configPath string, refs ...string) error {
 	// configPath := filepath.Join(homePath, ".docker", "config.json")
 	config := map[string]interface{}{}
-	credHelpers := map[string]string{}
-	config["credHelpers"] = credHelpers
 	if f, err := os.Open(configPath); err == nil {
 		err := json.NewDecoder(f).Decode(&config)
 		if f.Close(); err != nil {
@@ -69,6 +67,13 @@ func SetupCredHelpers(configPath string, refs ...string) error {
 		}
 	} else if !os.IsNotExist(err) {
 		return err
+	}
+	var credHelpers map[string]interface{}
+	if hash, ok := config["credHelpers"].(map[string]interface{}); ok {
+		credHelpers = hash
+	} else {
+		credHelpers = make(map[string]interface{})
+		config["credHelpers"] = credHelpers
 	}
 	added := false
 	for _, refStr := range refs {

@@ -3,7 +3,6 @@ package img_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -255,8 +254,8 @@ func Test(t *testing.T) {
 			when("config does exist", func() {
 				it.Before(func() {
 					b, err := json.Marshal(map[string]interface{}{
-						"cred_helpers": map[string]string{"domain.com": "will be removed"},
-						"a_key":        "a_val",
+						"credHelpers": map[string]string{"domain.com": "helper"},
+						"aKey":        "a_val",
 					})
 					assertNil(err)
 					os.MkdirAll(filepath.Dir(dockerConfig), 0755)
@@ -264,7 +263,7 @@ func Test(t *testing.T) {
 					assertNil(err)
 				})
 
-				it.Focus("leaves other keys unchanged, and overwrites CredHelpers", func() {
+				it("leaves other keys unchanged, and overwrites CredHelpers", func() {
 					gcrRef := "gcr.io/some-org/some-image:some-tag"
 
 					err := img.SetupCredHelpers(dockerConfig, gcrRef)
@@ -272,19 +271,14 @@ func Test(t *testing.T) {
 
 					contents, err := ioutil.ReadFile(dockerConfig)
 					assertNil(err)
-					fmt.Println(string(contents))
-					config := struct {
-						CredHelpers map[string]string `json:"cred_helpers"`
-						AKey        string            `json:"a_key"`
-					}{}
+					config := map[string]interface{}{}
 					err = json.Unmarshal(contents, &config)
 					assertNil(err)
-					fmt.Println(config)
-					if !reflect.DeepEqual(config.CredHelpers, map[string]string{"gcr.io": "gcr"}) {
-						t.Fatalf(`expected cred helpers to contain gcr.io:gcr, got %+v`, config.CredHelpers)
+					if !reflect.DeepEqual(config["credHelpers"], map[string]interface{}{"gcr.io": "gcr", "domain.com": "helper"}) {
+						t.Fatalf(`expected cred helpers to contain gcr.io:gcr, got %+v`, config)
 					}
-					if config.AKey != "a_val" {
-						t.Fatalf(`expected config to container a_key to have value a_val, got %+s`, config.AKey)
+					if config["aKey"] != "a_val" {
+						t.Fatalf(`expected config to container a_key to have value a_val, got %+s`, config)
 					}
 				})
 			})
