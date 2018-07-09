@@ -17,7 +17,11 @@ fi
 rm -rf "$buildpack_dir"
 mkdir -p "$nodejs_dir"
 
-curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 'buildpack-samples-*/nodejs-buildpack'
+if [[ "$(uname)" -eq "Linux" ]]; then
+  curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 --wildcards 'buildpack-samples-*/nodejs-buildpack'
+else
+  curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 'buildpack-samples-*/nodejs-buildpack'
+fi
 
 version_dir=$(dirname "$nodejs_dir")/$(cat "$nodejs_dir/buildpack.toml" | yj -t | jq -r .version)
 mv "$nodejs_dir" "$version_dir"
