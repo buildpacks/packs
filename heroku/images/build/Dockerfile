@@ -11,11 +11,11 @@ RUN chmod +x /packs/cytokine
 
 RUN /packs/cytokine get-default-buildpacks \
   --language=ruby \
+  --language=clojure \
   --language=python \
   --language=java \
-  --language=scala \
   --language=gradle \
-  --language=clojure \
+  --language=scala \
   --language=php \
   --language=go \
   --language=nodejs \
