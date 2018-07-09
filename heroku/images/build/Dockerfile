@@ -16,7 +16,7 @@ RUN /packs/cytokine get-default-buildpacks \
   --language=scala \
   --language=gradle \
   --language=clojure \
-  --language=python \
+  --language=php \
   --language=go \
   --language=nodejs \
   /var/lib/buildpacks
