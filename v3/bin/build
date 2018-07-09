@@ -25,7 +25,7 @@ fi
 
 version_dir=$(dirname "$nodejs_dir")/$(cat "$nodejs_dir/buildpack.toml" | yj -t | jq -r .version)
 mv "$nodejs_dir" "$version_dir"
-ln -s "$version_dir" "$nodejs_dir"
+ln -s "$(basename "$version_dir")" "$nodejs_dir"
 
 echo 'groups = [{ repository = "packs/v3", buildpacks = ["sh.packs.samples.buildpack.nodejs"] }]' > "$buildpack_dir/order.toml"
 
