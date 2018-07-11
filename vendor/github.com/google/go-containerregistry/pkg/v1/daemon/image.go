@@ -87,6 +87,7 @@ func unbufferedOpener(ref name.Reference) (tarball.Opener, error) {
 func Image(ref name.Reference, ro *ReadOptions) (v1.Image, error) {
 	var opener tarball.Opener
 	var err error
+
 	if ro.Buffer {
 		opener, err = bufferedOpener(ref)
 	} else {

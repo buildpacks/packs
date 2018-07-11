@@ -5,7 +5,7 @@ set -eo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")/..
 
 stack=$1
-samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/master
+samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/dgodd ## TODO change back to master branch
 buildpack_dir=$(pwd)/images/detect/buildpacks
 nodejs_dir=$buildpack_dir/sh.packs.samples.buildpack.nodejs/latest
 
@@ -34,5 +34,6 @@ docker pull "${stack}"
 docker build --build-arg "stack=${stack}" -t packs/v3:latest -f images/Dockerfile.base .
 docker build -t packs/v3:detect images/detect
 docker build -t packs/v3:build images/build
+docker build -t packs/v3:export images/export
 docker build -t packs/v3:run images/run
 

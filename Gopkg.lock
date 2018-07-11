@@ -15,30 +15,7 @@
 
 [[projects]]
   name = "code.cloudfoundry.org/cli"
-  packages = [
-    "actor/actionerror",
-    "api/cloudcontroller/ccerror",
-    "api/cloudcontroller/ccv2/constant",
-    "api/plugin/pluginerror",
-    "api/uaa",
-    "api/uaa/constant",
-    "api/uaa/internal",
-    "cf/appfiles",
-    "cf/errors",
-    "cf/formatters",
-    "cf/i18n",
-    "cf/models",
-    "cf/util/glob",
-    "command/translatableerror",
-    "i18n/resources",
-    "types",
-    "util",
-    "util/clissh/ssherror",
-    "util/configv3",
-    "util/manifest",
-    "util/ui",
-    "version"
-  ]
+  packages = ["actor/actionerror","api/cloudcontroller/ccerror","api/cloudcontroller/ccv2/constant","api/plugin/pluginerror","api/uaa","api/uaa/constant","api/uaa/internal","cf/appfiles","cf/errors","cf/formatters","cf/i18n","cf/models","cf/util/glob","command/translatableerror","i18n/resources","types","util","util/clissh/ssherror","util/configv3","util/manifest","util/ui","version"]
   revision = "a400097531d46b877badee63790d847655cdf595"
   version = "v6.37.0"
 
@@ -49,6 +26,12 @@
   revision = "4d0c80011a0f37da1711c184028bc40137cd45af"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/BurntSushi/toml"
+  packages = ["."]
+  revision = "a368813c5e648fee92e5f6c30e3944ff9d5e8895"
+
+[[projects]]
   name = "github.com/Microsoft/go-winio"
   packages = ["."]
   revision = "7da180ee92d8bd8bb8c37fc560e673e6557c392f"
@@ -56,12 +39,7 @@
 
 [[projects]]
   name = "github.com/SermoDigital/jose"
-  packages = [
-    ".",
-    "crypto",
-    "jws",
-    "jwt"
-  ]
+  packages = [".","crypto","jws","jwt"]
   revision = "f6df55f235c24f236d11dbcf665249a59ac2021f"
   version = "1.1"
 
@@ -92,11 +70,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/cloudfoundry/bosh-utils"
-  packages = [
-    "errors",
-    "logger",
-    "system"
-  ]
+  packages = ["errors","logger","system"]
   revision = "b082aa9a81950fa8df1a969575319417b1e073f4"
 
 [[projects]]
@@ -113,43 +87,19 @@
 
 [[projects]]
   name = "github.com/docker/distribution"
-  packages = [
-    "digest",
-    "reference"
-  ]
+  packages = ["digest","reference"]
   revision = "48294d928ced5dd9b378f7fd7c6f5da3ff3f2c89"
   version = "v2.6.2"
 
 [[projects]]
   name = "github.com/docker/docker"
-  packages = [
-    "api/types",
-    "api/types/blkiodev",
-    "api/types/container",
-    "api/types/events",
-    "api/types/filters",
-    "api/types/mount",
-    "api/types/network",
-    "api/types/reference",
-    "api/types/registry",
-    "api/types/strslice",
-    "api/types/swarm",
-    "api/types/time",
-    "api/types/versions",
-    "api/types/volume",
-    "client",
-    "pkg/tlsconfig"
-  ]
+  packages = ["api/types","api/types/blkiodev","api/types/container","api/types/events","api/types/filters","api/types/mount","api/types/network","api/types/reference","api/types/registry","api/types/strslice","api/types/swarm","api/types/time","api/types/versions","api/types/volume","client","pkg/tlsconfig"]
   revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
   version = "v1.13.1"
 
 [[projects]]
   name = "github.com/docker/go-connections"
-  packages = [
-    "nat",
-    "sockets",
-    "tlsconfig"
-  ]
+  packages = ["nat","sockets","tlsconfig"]
   revision = "3ede32e2033de7505e6500d6c868c2b9ed9f169d"
   version = "v0.3.0"
 
@@ -168,21 +118,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/google/go-containerregistry"
-  packages = [
-    "pkg/authn",
-    "pkg/name",
-    "pkg/v1",
-    "pkg/v1/daemon",
-    "pkg/v1/empty",
-    "pkg/v1/mutate",
-    "pkg/v1/partial",
-    "pkg/v1/random",
-    "pkg/v1/remote",
-    "pkg/v1/remote/transport",
-    "pkg/v1/tarball",
-    "pkg/v1/types",
-    "pkg/v1/v1util"
-  ]
+  packages = ["pkg/authn","pkg/name","pkg/v1","pkg/v1/daemon","pkg/v1/empty","pkg/v1/mutate","pkg/v1/partial","pkg/v1/random","pkg/v1/remote","pkg/v1/remote/transport","pkg/v1/tarball","pkg/v1/types","pkg/v1/v1util"]
   revision = "11085b1805b9e9e6987278a5f61202d088e9b7f0"
 
 [[projects]]
@@ -218,7 +154,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/sclevine/spec"
-  packages = ["."]
+  packages = [".","report"]
   revision = "a925ac4bfbc9e5770f1239042559a18443f4d84b"
 
 [[projects]]
@@ -230,10 +166,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/vito/go-interact"
-  packages = [
-    "interact",
-    "interact/terminal"
-  ]
+  packages = ["interact","interact/terminal"]
   revision = "fa338ed9e9ecbb0e9c2e6c7a0160d9fc9b0efbd9"
 
 [[projects]]
@@ -245,34 +178,19 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = [
-    "context",
-    "context/ctxhttp",
-    "internal/socks",
-    "proxy"
-  ]
+  packages = ["context","context/ctxhttp","internal/socks","proxy"]
   revision = "1e491301e022f8f977054da4c2d852decd59571f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = [
-    "unix",
-    "windows"
-  ]
+  packages = ["unix","windows"]
   revision = "c11f84a56e43e20a78cee75a7c034031ecf57d1f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = [
-    "internal/gen",
-    "internal/language",
-    "internal/language/compact",
-    "internal/tag",
-    "language",
-    "unicode/cldr"
-  ]
+  packages = ["internal/gen","internal/language","internal/language/compact","internal/tag","language","unicode/cldr"]
   revision = "5c1cf69b5978e5a34c5f9ba09a83e56acc4b7877"
 
 [[projects]]
@@ -284,6 +202,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f930ac3eacd7954c9676680be24581cf512c244dc006f2c227e179981fe02a6e"
+  inputs-digest = "dffc8a2d9b1e000c44d57eef453425548ab1f4a3e352e964323f42c119f3e350"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -1,0 +1,46 @@
+https://github.com/projectriff/node-function-invoker/tree/buildpack
+https://github.com/buildpack/samples/tree/master/nodejs-buildpack/bin
+
+Have detection set build plan.
+
+Merge Stephen's (nodejs) with invoker
+
+v3 Exporter (simple, like v2 -- or complex if it is easier/better)
+  - https://github.com/buildpack/packs/blob/master/cf/cmd/exporter/main.go
+  - pretend script finished and update the repo (follow the spec)
+  - run nodejs buildpack using https://github.com/buildpack/packs/blob/master/v3/images/Dockerfile.base
+    and https://github.com/buildpack/packs/blob/master/v3/images/build/Dockerfile
+    - script is https://github.com/buildpack/packs/blob/master/v3/bin/build -- cwd is the app
+
+    $ ./v3/bin/build packs/cflinuxfs2
+    $ docker run -it -w /launch/app -v $PWD:/launch/app --entrypoint bash packs/v3:build
+    # /packs/detector
+    # touch detect.toml
+    # /packs/builder
+
+    copy /launch from builder image to run image
+    # /packs/runner (or similer)
+
+
+
+
+Allow version selection
+
+profile the "github.com/google/go-containerregistry/pkg/v1" and find the 3 seconds (and then fix)
+
+
+=====
+
+Simple build -- see BUILDAPP.sh
+
+
+=====
+Questions / Alternative approaches
+
+1. Why do we download buildpacks in v3/bin/build instead of v3/images/detect/Dockerfile
+   (advantage: no need for jq/yq on user's machine)
+1. Why am I creating detect.toml (eg. why not detect image?)
+2. How come my docker run uses port 5000?
+3. How to pick the right layer to re-use?
+1. Which process type should run? We chose "web" for historical reasons.
+1. Docker image; diffid vs digest??

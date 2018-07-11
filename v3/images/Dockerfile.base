@@ -2,12 +2,13 @@ ARG stack
 ARG go_version=1.10.3
 
 FROM golang:${go_version} as lifecycle
-ARG lifecycle_ref=51e61d6
+ARG lifecycle_ref=40f562ca61de97b1cb64f00f882c5b4d79697f54
 ARG lifecycle_repo=github.com/buildpack/lifecycle
 
 WORKDIR /go/src/${lifecycle_repo}
-RUN git clone --single-branch "https://${lifecycle_repo}" . && \
-  git checkout "${lifecycle_ref}"
+RUN git clone "https://${lifecycle_repo}" . && \
+  git checkout "${lifecycle_ref}" && \
+  git show
 RUN CGO_ENABLED=0 go install -a -installsuffix static "${lifecycle_repo}/cmd/..."
 
 FROM ${stack}
@@ -16,3 +17,4 @@ RUN useradd -u 1000 -mU -s /bin/bash packs
 COPY --from=lifecycle /go/bin /packs
 
 WORKDIR /workspace
+RUN chown -R packs /workspace

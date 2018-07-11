@@ -13,3 +13,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/google/go-containerregistry"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/BurntSushi/toml"
