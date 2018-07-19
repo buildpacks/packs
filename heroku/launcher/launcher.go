@@ -35,6 +35,7 @@ func main() {
 
 	supplyApp(inputDroplet, "/")
 
+	// Heroku Container Registry will break on chown
 	chownAll("heroku", "heroku", "/app")
 
 	err := os.Chdir("/app")
@@ -114,9 +115,9 @@ func parseReleaseYml(path string) (string, error) {
 	}
 }
 
-func chownAll(user, group, path string) {
+func chownAll(user, group, path string) error {
 	err := exec.Command("chown", "-R", user+":"+group, path).Run()
-	check(err, packs.CodeFailed, "chown", path, "to", user+":"+group)
+	return err
 }
 
 func check(err error, code int, action ...string) {
