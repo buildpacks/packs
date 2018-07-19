@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"strings"
-	"syscall"
-	"runtime"
 	"github.com/buildpack/packs"
 	herokuapp "github.com/buildpack/packs/heroku/app"
+	"os"
+	"runtime"
+	"strings"
+	"syscall"
 )
 
 const shellScript = `
