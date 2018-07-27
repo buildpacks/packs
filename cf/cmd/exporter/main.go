@@ -82,7 +82,7 @@ func export() error {
 			return packs.FailErr(err, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
-		repoImage, err = img.Append(stackImage, layer)
+		repoImage, _, err = img.Append(stackImage, layer)
 		if err != nil {
 			return packs.FailErr(err, "append droplet to", stackName)
 		}

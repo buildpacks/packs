@@ -12,16 +12,16 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
-func Append(base v1.Image, tar string) (v1.Image, error) {
+func Append(base v1.Image, tar string) (v1.Image, v1.Layer, error) {
 	layer, err := tarball.LayerFromFile(tar)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	image, err := mutate.AppendLayers(base, layer)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return image, nil
+	return image, layer, nil
 }
 
 type ImageFinder func(labels map[string]string) (v1.Image, error)
