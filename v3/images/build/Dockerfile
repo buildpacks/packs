@@ -16,11 +16,11 @@ RUN apt-get update && \
 
 COPY --from=deps /go/bin /usr/local/bin
 
-RUN mkdir -p /cache /launch/app /platform/env
+RUN mkdir -p /cache /launch/app /launch/config /platform/env
 RUN chown -R packs:packs /launch /cache
 
 USER packs
 
-ENV PACK_METADATA_PATH ./metadata.toml
+ENV PACK_METADATA_PATH /launch/config/metadata.toml
 
 ENTRYPOINT ["/packs/builder"]
