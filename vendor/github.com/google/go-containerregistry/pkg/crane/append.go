@@ -30,17 +30,23 @@ import (
 func init() { Root.AddCommand(NewCmdAppend()) }
 
 func NewCmdAppend() *cobra.Command {
-	var output string
+	var baseRef, newTag, newLayer, outFile string
 	appendCmd := &cobra.Command{
 		Use:   "append",
 		Short: "Append contents of a tarball to a remote image",
-		Args:  cobra.ExactArgs(3),
+		Args:  cobra.NoArgs,
 		Run: func(_ *cobra.Command, args []string) {
-			src, dst, tar := args[0], args[1], args[2]
-			doAppend(src, dst, tar, output)
+			doAppend(baseRef, newTag, newLayer, outFile)
 		},
 	}
-	appendCmd.Flags().StringVarP(&output, "output", "o", "", "Path to new tarball of resulting image")
+	appendCmd.Flags().StringVarP(&baseRef, "base", "b", "", "Name of base image to append to")
+	appendCmd.Flags().StringVarP(&newTag, "new_tag", "t", "", "Tag to apply to resulting image")
+	appendCmd.Flags().StringVarP(&newLayer, "new_layer", "f", "", "Path to tarball to append to image")
+	appendCmd.Flags().StringVarP(&outFile, "output", "o", "", "Path to new tarball of resulting image")
+
+	appendCmd.MarkFlagRequired("base")
+	appendCmd.MarkFlagRequired("new_tag")
+	appendCmd.MarkFlagRequired("new_layer")
 	return appendCmd
 }
 
@@ -49,13 +55,7 @@ func doAppend(src, dst, tar, output string) {
 	if err != nil {
 		log.Fatalf("parsing reference %q: %v", src, err)
 	}
-
-	srcAuth, err := authn.DefaultKeychain.Resolve(srcRef.Context().Registry)
-	if err != nil {
-		log.Fatalf("getting creds for %q: %v", srcRef, err)
-	}
-
-	srcImage, err := remote.Image(srcRef, srcAuth, http.DefaultTransport)
+	srcImage, err := remote.Image(srcRef, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
 		log.Fatalf("reading image %q: %v", srcRef, err)
 	}

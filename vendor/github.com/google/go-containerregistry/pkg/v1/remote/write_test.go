@@ -22,14 +22,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
+
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
@@ -90,7 +93,7 @@ func TestNextLocation(t *testing.T) {
 			},
 			Request: &http.Request{
 				URL: &url.URL{
-					Scheme: transport.Scheme(ref.Registry),
+					Scheme: ref.Registry.Scheme(),
 					Host:   ref.RegistryStr(),
 				},
 			},
@@ -129,6 +132,10 @@ func mustConfigName(t *testing.T, img v1.Image) v1.Hash {
 
 func setupWriter(repo string, img v1.Image, handler http.HandlerFunc) (*writer, closer, error) {
 	server := httptest.NewServer(handler)
+	return setupWriterWithServer(server, repo, img)
+}
+
+func setupWriterWithServer(server *httptest.Server, repo string, img v1.Image) (*writer, closer, error) {
 	u, err := url.Parse(server.URL)
 	if err != nil {
 		server.Close()
@@ -254,7 +261,7 @@ func TestInitiateUploadNoMountsBadStatus(t *testing.T) {
 	}
 }
 
-func TestInitiateUploadMountsWithMount(t *testing.T) {
+func TestInitiateUploadMountsWithMountFromDifferentRegistry(t *testing.T) {
 	img := setupImage(t)
 	h := mustConfigName(t, img)
 	expectedMountRepo := "a/different/repo"
@@ -262,12 +269,11 @@ func TestInitiateUploadMountsWithMount(t *testing.T) {
 	expectedPath := fmt.Sprintf("/v2/%s/blobs/uploads/", expectedRepo)
 	expectedQuery := url.Values{
 		"mount": []string{h.String()},
-		"from":  []string{expectedMountRepo},
 	}.Encode()
 
 	img = &mountableImage{
-		Image:      img,
-		Repository: mustNewTag(t, fmt.Sprintf("gcr.io/%s", expectedMountRepo)).Repository,
+		Image:     img,
+		Reference: mustNewTag(t, fmt.Sprintf("gcr.io/%s", expectedMountRepo)),
 	}
 
 	w, closer, err := setupWriter(expectedRepo, img, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -284,6 +290,56 @@ func TestInitiateUploadMountsWithMount(t *testing.T) {
 	}))
 	if err != nil {
 		t.Fatalf("setupWriter() = %v", err)
+	}
+	defer closer.Close()
+
+	_, mounted, err := w.initiateUpload(h)
+	if err != nil {
+		t.Errorf("intiateUpload() = %v", err)
+	}
+	if !mounted {
+		t.Error("initiateUpload() = !mounted, want mounted")
+	}
+}
+
+func TestInitiateUploadMountsWithMountFromTheSameRegistry(t *testing.T) {
+	img := setupImage(t)
+	h := mustConfigName(t, img)
+	expectedMountRepo := "a/different/repo"
+	expectedRepo := "yet/again"
+	expectedPath := fmt.Sprintf("/v2/%s/blobs/uploads/", expectedRepo)
+	expectedQuery := url.Values{
+		"mount": []string{h.String()},
+		"from":  []string{expectedMountRepo},
+	}.Encode()
+
+	serverHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Method; got %v, want %v", r.Method, http.MethodPost)
+		}
+		if r.URL.Path != expectedPath {
+			t.Errorf("URL; got %v, want %v", r.URL.Path, expectedPath)
+		}
+		if r.URL.RawQuery != expectedQuery {
+			t.Errorf("RawQuery; got %v, want %v", r.URL.RawQuery, expectedQuery)
+		}
+		http.Error(w, "Mounted", http.StatusCreated)
+	})
+	server := httptest.NewServer(serverHandler)
+	u, err := url.Parse(server.URL)
+	if err != nil {
+		server.Close()
+		t.Fatalf("httptest.NewServer() = %v", err)
+	}
+
+	img = &mountableImage{
+		Image:     img,
+		Reference: mustNewTag(t, fmt.Sprintf("%s/%s", u.Host, expectedMountRepo)),
+	}
+
+	w, closer, err := setupWriterWithServer(server, expectedRepo, img)
+	if err != nil {
+		t.Fatalf("setupWriterWithServer() = %v", err)
 	}
 	defer closer.Close()
 
@@ -551,5 +607,139 @@ func TestWriteWithErrors(t *testing.T) {
 		t.Errorf("Write() = %T; wanted *remote.Error", se)
 	} else if diff := cmp.Diff(expectedError, se); diff != "" {
 		t.Errorf("Write(); (-want +got) = %s", diff)
+	}
+}
+
+func TestScopesForUploadingImage(t *testing.T) {
+
+	referenceToUpload, err := name.NewTag("example.com/sample/sample:latest", name.WeakValidation)
+	if err != nil {
+		t.Fatalf("name.NewTag() = %v", err)
+	}
+
+	anotherRepo1, err := name.NewTag("example.com/sample/another_repo1:latest", name.WeakValidation)
+	if err != nil {
+		t.Fatalf("name.NewTag() = %v", err)
+	}
+
+	anotherRepo2, err := name.NewTag("example.com/sample/another_repo2:latest", name.WeakValidation)
+	if err != nil {
+		t.Fatalf("name.NewTag() = %v", err)
+	}
+
+	img := setupImage(t)
+	layers, err := img.Layers()
+	if err != nil {
+		t.Fatalf("img.Layers() = %v", err)
+	}
+	dummyLayer := layers[0]
+
+	testCases := []struct {
+		name      string
+		reference name.Reference
+		layers    []v1.Layer
+		expected  []string
+	}{
+		{
+			name:      "empty layers",
+			reference: referenceToUpload,
+			layers:    []v1.Layer{},
+			expected: []string{
+				referenceToUpload.Scope(transport.PushScope),
+			},
+		},
+		{
+			name:      "mountable layers with single reference with no-duplicate",
+			reference: referenceToUpload,
+			layers: []v1.Layer{
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo1,
+				},
+			},
+			expected: []string{
+				referenceToUpload.Scope(transport.PushScope),
+				anotherRepo1.Scope(transport.PullScope),
+			},
+		},
+		{
+			name:      "mountable layers with single reference with duplicate",
+			reference: referenceToUpload,
+			layers: []v1.Layer{
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo1,
+				},
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo1,
+				},
+			},
+			expected: []string{
+				referenceToUpload.Scope(transport.PushScope),
+				anotherRepo1.Scope(transport.PullScope),
+			},
+		},
+		{
+			name:      "mountable layers with multiple references with no-duplicates",
+			reference: referenceToUpload,
+			layers: []v1.Layer{
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo1,
+				},
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo2,
+				},
+			},
+			expected: []string{
+				referenceToUpload.Scope(transport.PushScope),
+				anotherRepo1.Scope(transport.PullScope),
+				anotherRepo2.Scope(transport.PullScope),
+			},
+		},
+		{
+			name:      "mountable layers with multiple references with duplicates",
+			reference: referenceToUpload,
+			layers: []v1.Layer{
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo1,
+				},
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo2,
+				},
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo1,
+				},
+				&MountableLayer{
+					Layer:     dummyLayer,
+					Reference: anotherRepo2,
+				},
+			},
+			expected: []string{
+				referenceToUpload.Scope(transport.PushScope),
+				anotherRepo1.Scope(transport.PullScope),
+				anotherRepo2.Scope(transport.PullScope),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := scopesForUploadingImage(tc.reference, tc.layers)
+
+		if want, got := tc.expected[0], actual[0]; want != got {
+			t.Errorf("TestScopesForUploadingImage() %s: Wrong first scope; want %v, got %v", tc.name, want, got)
+		}
+
+		less := func(a, b string) bool {
+			return strings.Compare(a, b) <= -1
+		}
+		if diff := cmp.Diff(tc.expected[1:], actual[1:], cmpopts.SortSlices(less)); diff != "" {
+			t.Errorf("TestScopesForUploadingImage() %s: Wrong scopes (-want +got) = %v", tc.name, diff)
+		}
 	}
 }

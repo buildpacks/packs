@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -27,7 +27,7 @@ import (
 
 func TestConfigDir(t *testing.T) {
 	clearEnv := func() {
-		for _, e := range []string{"HOME", "DOCKER_CONFIG", "HOMEDRIVE", "HOMEPATH"} {
+		for _, e := range []string{"HOME", "DOCKER_CONFIG", "HOMEDRIVE", "HOMEPATH", "USERPROFILE"} {
 			os.Unsetenv(e)
 		}
 	}
@@ -38,27 +38,32 @@ func TestConfigDir(t *testing.T) {
 		want             string
 		wantErr          bool
 		skipOnNonWindows bool
+		skipOnWindows    bool
 	}{{
 		desc:    "no env set",
 		env:     map[string]string{},
 		wantErr: true,
 	}, {
 		desc: "DOCKER_CONFIG",
-		env:  map[string]string{"DOCKER_CONFIG": "/path/to/.docker"},
-		want: "/path/to/.docker",
+		env:  map[string]string{"DOCKER_CONFIG": filepath.FromSlash("/path/to/.docker")},
+		want: filepath.FromSlash("/path/to/.docker"),
 	}, {
-		desc: "HOME",
-		env:  map[string]string{"HOME": "/my/home"},
-		want: "/my/home/.docker",
+		desc:          "HOME",
+		skipOnWindows: true,
+		env:           map[string]string{"HOME": filepath.FromSlash("/my/home")},
+		want:          filepath.FromSlash("/my/home/.docker"),
 	}, {
 		desc:             "USERPROFILE",
 		skipOnNonWindows: true,
-		env:              map[string]string{"USERPROFILE": "/user/profile"},
-		want:             "/user/profile/.docker",
+		env:              map[string]string{"USERPROFILE": filepath.FromSlash("/user/profile")},
+		want:             filepath.FromSlash("/user/profile/.docker"),
 	}} {
 		t.Run(c.desc, func(t *testing.T) {
 			if c.skipOnNonWindows && runtime.GOOS != "windows" {
 				t.Skip("Skipping on non-Windows")
+			}
+			if c.skipOnWindows && runtime.GOOS == "windows" {
+				t.Skip("Skipping on Windows")
 			}
 			clearEnv()
 			for k, v := range c.env {
@@ -84,21 +89,34 @@ var (
 )
 
 // setupConfigDir sets up an isolated configDir() for this test.
-func setupConfigDir() string {
+func setupConfigDir(t *testing.T) string {
+	tmpdir := os.Getenv("TEST_TMPDIR")
+	if tmpdir == "" {
+		var err error
+		tmpdir, err = ioutil.TempDir("", "keychain_test")
+		if err != nil {
+			t.Fatalf("creating temp dir: %v", err)
+		}
+	}
+
 	fresh = fresh + 1
-	p := fmt.Sprintf("%s/%d", os.Getenv("TEST_TMPDIR"), fresh)
+	p := fmt.Sprintf("%s/%d", tmpdir, fresh)
 	os.Setenv("DOCKER_CONFIG", p)
 	if err := os.Mkdir(p, 0777); err != nil {
-		panic(err)
+		t.Fatalf("mkdir %q: %v", p, err)
 	}
 	return p
 }
 
-func setupConfigFile(content string) {
-	p := path.Join(setupConfigDir(), "config.json")
+func setupConfigFile(t *testing.T, content string) string {
+	cd := setupConfigDir(t)
+	p := filepath.Join(cd, "config.json")
 	if err := ioutil.WriteFile(p, []byte(content), 0600); err != nil {
-		panic(err)
+		t.Fatalf("write %q: %v", p, err)
 	}
+
+	// return the config dir so we can clean up
+	return cd
 }
 
 func checkOutput(t *testing.T, want string) {
@@ -144,7 +162,8 @@ func checkHelper(t *testing.T) {
 }
 
 func TestNoConfig(t *testing.T) {
-	setupConfigDir()
+	cd := setupConfigDir(t)
+	defer os.RemoveAll(filepath.Dir(cd))
 
 	checkAnonymousFallback(t)
 }
@@ -174,7 +193,9 @@ func TestVariousPaths(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		setupConfigFile(test.content)
+		cd := setupConfigFile(t, test.content)
+		// For some reason, these tempdirs don't get cleaned up.
+		defer os.RemoveAll(filepath.Dir(cd))
 
 		test.check(t)
 	}

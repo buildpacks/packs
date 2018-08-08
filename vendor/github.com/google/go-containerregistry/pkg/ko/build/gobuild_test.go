@@ -15,9 +15,10 @@
 package build
 
 import (
+	"archive/tar"
+	"io"
 	"io/ioutil"
-	"os"
-	"path"
+	"path/filepath"
 	"time"
 
 	"testing"
@@ -26,121 +27,38 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 )
 
-type testContext struct {
-	gopath  string
-	workdir string
-}
-
-func (tc *testContext) Enter(t *testing.T) {
-	// Track the original state, so that we can restore it.
-	ogp := os.Getenv("GOPATH")
-	// Change the current state for the test.
-	os.Setenv("GOPATH", tc.gopath)
-	getwd = func() (string, error) {
-		return tc.workdir, nil
-	}
-	// Record the original state for restoration.
-	tc.gopath = ogp
-}
-
-func (tc *testContext) Exit(t *testing.T) {
-	// Restore the original state.
-	os.Setenv("GOPATH", tc.gopath)
-	getwd = os.Getwd
-}
-
-func TestComputeImportPath(t *testing.T) {
-	tests := []struct {
-		desc             string
-		ctx              testContext
-		expectErr        bool
-		expectImportpath string
-	}{{
-		desc: "simple gopath",
-		ctx: testContext{
-			gopath:  "/go",
-			workdir: "/go/src/github.com/foo/bar",
-		},
-		expectImportpath: "github.com/foo/bar",
-	}, {
-		desc: "trailing slashes",
-		ctx: testContext{
-			gopath:  "/go/",
-			workdir: "/go/src/github.com/foo/bar/",
-		},
-		expectImportpath: "github.com/foo/bar",
-	}, {
-		desc: "not on gopath",
-		ctx: testContext{
-			gopath:  "/go",
-			workdir: "/rust/src/github.com/foo/bar",
-		},
-		expectErr: true,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
-			// Set the context for our test.
-			test.ctx.Enter(t)
-			defer test.ctx.Exit(t)
-
-			ip, err := computeImportpath()
-			if err != nil && !test.expectErr {
-				t.Errorf("computeImportpath() = %v, want %v", err, test.expectImportpath)
-			} else if err == nil && test.expectErr {
-				t.Errorf("computeImportpath() = %v, want error", ip)
-			} else if err == nil && !test.expectErr {
-				if got, want := ip, test.expectImportpath; want != got {
-					t.Errorf("computeImportpath() = %v, want %v", got, want)
-				}
-			}
-		})
-	}
-}
-
 func TestGoBuildIsSupportedRef(t *testing.T) {
-	img, err := random.Image(1024, 1)
+	base, err := random.Image(1024, 3)
 	if err != nil {
 		t.Fatalf("random.Image() = %v", err)
 	}
-	importpath := "github.com/google/go-containerregistry"
-	tc := testContext{
-		gopath:  "/go",
-		workdir: "/go/src/" + importpath,
-	}
-	tc.Enter(t)
-	defer tc.Exit(t)
-	ng, err := NewGo(Options{GetBase: func(string) (v1.Image, error) {
-		return img, nil
-	}})
+
+	ng, err := NewGo(WithBaseImages(func(string) (v1.Image, error) { return base, nil }))
 	if err != nil {
 		t.Fatalf("NewGo() = %v", err)
 	}
 
-	supportedTests := []string{
-		path.Join(importpath, "pkg", "foo"),
-		path.Join(importpath, "cmd", "crane"),
-	}
-
-	for _, test := range supportedTests {
-		t.Run(test, func(t *testing.T) {
-			if !ng.IsSupportedReference(test) {
-				t.Errorf("IsSupportedReference(%v) = false, want true", test)
+	// Supported import paths.
+	for _, importpath := range []string{
+		filepath.FromSlash("github.com/google/go-containerregistry/cmd/crane"),
+		filepath.FromSlash("github.com/google/go-containerregistry/cmd/ko"),
+		filepath.FromSlash("github.com/google/go-containerregistry/vendor/k8s.io/code-generator/cmd/deepcopy-gen"), // vendored commands work too.
+	} {
+		t.Run(importpath, func(t *testing.T) {
+			if !ng.IsSupportedReference(importpath) {
+				t.Errorf("IsSupportedReference(%q) = false, want true", importpath)
 			}
 		})
 	}
 
-	unsupportedTests := []string{
-		"simple string",
-		"k8s.io/client-go/pkg/foo",
-		"github.com/google/secret/cmd/sauce",
-		path.Join("vendor", importpath, "pkg", "foo"),
-	}
-
-	for _, test := range unsupportedTests {
-		t.Run(test, func(t *testing.T) {
-			if ng.IsSupportedReference(test) {
-				t.Errorf("IsSupportedReference(%v) = true, want false", test)
+	// Unsupported import paths.
+	for _, importpath := range []string{
+		filepath.FromSlash("github.com/google/go-containerregistry/v1/remote"), // not a command.
+		filepath.FromSlash("github.com/google/go-containerregistry/pkg/foo"),   // does not exist.
+	} {
+		t.Run(importpath, func(t *testing.T) {
+			if ng.IsSupportedReference(importpath) {
+				t.Errorf("IsSupportedReference(%v) = true, want false", importpath)
 			}
 		})
 	}
@@ -148,48 +66,38 @@ func TestGoBuildIsSupportedRef(t *testing.T) {
 
 // A helper method we use to substitute for the default "build" method.
 func writeTempFile(s string) (string, error) {
-	file, err := ioutil.TempFile(os.TempDir(), "out")
+	tmpDir, err := ioutil.TempDir("", "ko")
+	if err != nil {
+		return "", err
+	}
+
+	file, err := ioutil.TempFile(tmpDir, "out")
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
-	if _, err := file.WriteString(s); err != nil {
+	if _, err := file.WriteString(filepath.ToSlash(s)); err != nil {
 		return "", err
 	}
 	return file.Name(), nil
 }
 
-func TestGoBuild(t *testing.T) {
+func TestGoBuildNoKoData(t *testing.T) {
 	baseLayers := int64(3)
 	base, err := random.Image(1024, baseLayers)
 	if err != nil {
 		t.Fatalf("random.Image() = %v", err)
 	}
 	importpath := "github.com/google/go-containerregistry"
-	tc := testContext{
-		gopath:  "/go",
-		workdir: "/go/src/" + importpath,
-	}
-	tc.Enter(t)
-	defer tc.Exit(t)
 
-	creationTime := func() (*v1.Time, error) {
-		return &v1.Time{time.Unix(5000, 0)}, nil
-	}
-
+	creationTime := v1.Time{time.Unix(5000, 0)}
 	ng, err := NewGo(
-		Options{
-			GetCreationTime: creationTime,
-			GetBase: func(string) (v1.Image, error) {
-				return base, nil
-			},
-		})
-	if err != nil {
-		t.Fatalf("NewGo() = %v", err)
-	}
-	ng.(*gobuild).build = writeTempFile
+		WithCreationTime(creationTime),
+		WithBaseImages(func(string) (v1.Image, error) { return base, nil }),
+		withBuilder(writeTempFile),
+	)
 
-	img, err := ng.Build(path.Join(importpath, "cmd", "crane"))
+	img, err := ng.Build(filepath.Join(importpath, "cmd", "crane"))
 	if err != nil {
 		t.Errorf("Build() = %v", err)
 	}
@@ -201,7 +109,8 @@ func TestGoBuild(t *testing.T) {
 
 	// Check that we have the expected number of layers.
 	t.Run("check layer count", func(t *testing.T) {
-		if got, want := int64(len(ls)), baseLayers+1; got != want {
+		// We get a layer for the go binary and a layer for the kodata/
+		if got, want := int64(len(ls)), baseLayers+2; got != want {
 			t.Fatalf("len(Layers()) = %v, want %v", got, want)
 		}
 	})
@@ -211,9 +120,9 @@ func TestGoBuild(t *testing.T) {
 	t.Run("check determinism", func(t *testing.T) {
 		expectedHash := v1.Hash{
 			Algorithm: "sha256",
-			Hex:       "b0780391d7e0cc1f43dc4531e73ee7493309ce446c2eeb9afe8866b623fcf3c2",
+			Hex:       "a7be3daf6084d1ec81ca903599d23a514903c9e875d60414ff8009994615bd70",
 		}
-		appLayer := ls[baseLayers]
+		appLayer := ls[baseLayers+1]
 
 		if got, err := appLayer.Digest(); err != nil {
 			t.Errorf("Digest() = %v", err)
@@ -245,13 +154,149 @@ func TestGoBuild(t *testing.T) {
 		}
 
 		actual := cfg.Created
-		want, err := creationTime()
-		if err != nil {
-			t.Errorf("CreationTime() = %v", err)
+		if actual.Time != creationTime.Time {
+			t.Errorf("created = %v, want %v", actual, creationTime)
+		}
+	})
+}
+
+func TestGoBuild(t *testing.T) {
+	baseLayers := int64(3)
+	base, err := random.Image(1024, baseLayers)
+	if err != nil {
+		t.Fatalf("random.Image() = %v", err)
+	}
+	importpath := "github.com/google/go-containerregistry"
+
+	creationTime := v1.Time{time.Unix(5000, 0)}
+	ng, err := NewGo(
+		WithCreationTime(creationTime),
+		WithBaseImages(func(string) (v1.Image, error) { return base, nil }),
+		withBuilder(writeTempFile),
+	)
+
+	img, err := ng.Build(filepath.Join(importpath, "cmd", "ko", "test"))
+	if err != nil {
+		t.Errorf("Build() = %v", err)
+	}
+
+	ls, err := img.Layers()
+	if err != nil {
+		t.Errorf("Layers() = %v", err)
+	}
+
+	// Check that we have the expected number of layers.
+	t.Run("check layer count", func(t *testing.T) {
+		// We get a layer for the go binary and a layer for the kodata/
+		if got, want := int64(len(ls)), baseLayers+2; got != want {
+			t.Fatalf("len(Layers()) = %v, want %v", got, want)
+		}
+	})
+
+	// While we have a randomized base image, the application layer should be completely deterministic.
+	// Check that when given fixed build outputs we get a fixed layer hash.
+	t.Run("check determinism", func(t *testing.T) {
+		expectedHash := v1.Hash{
+			Algorithm: "sha256",
+			Hex:       "9b5d822a4d4c0d1afab5dbe85b38e922240a7bf3b2bbbeff53189fe46f3a7b84",
+		}
+		appLayer := ls[baseLayers+1]
+
+		if got, err := appLayer.Digest(); err != nil {
+			t.Errorf("Digest() = %v", err)
+		} else if got != expectedHash {
+			t.Errorf("Digest() = %v, want %v", got, expectedHash)
+		}
+	})
+
+	// Check that the kodata layer contains the expected data (even though it was a symlink
+	// outside kodata).
+	t.Run("check kodata", func(t *testing.T) {
+		expectedHash := v1.Hash{
+			Algorithm: "sha256",
+			Hex:       "7a7bafbc2ae1bf844c47b33025dd459913a3fece0a94b1f3ced860675be2b79c",
+		}
+		appLayer := ls[baseLayers]
+
+		if got, err := appLayer.Digest(); err != nil {
+			t.Errorf("Digest() = %v", err)
+		} else if got != expectedHash {
+			t.Errorf("Digest() = %v, want %v", got, expectedHash)
 		}
 
-		if actual.Time != want.Time {
-			t.Errorf("created = %v, want %v", actual, want)
+		r, err := appLayer.Uncompressed()
+		if err != nil {
+			t.Errorf("Uncompressed() = %v", err)
+		}
+		defer r.Close()
+		found := false
+		tr := tar.NewReader(r)
+		for {
+			header, err := tr.Next()
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				t.Errorf("Next() = %v", err)
+				continue
+			}
+			if header.Name != filepath.Join(kodataRoot, "kenobi") {
+				continue
+			}
+			found = true
+			body, err := ioutil.ReadAll(tr)
+			if err != nil {
+				t.Errorf("ReadAll() = %v", err)
+			} else if want, got := "Hello there\n", string(body); got != want {
+				t.Errorf("ReadAll() = %v, wanted %v", got, want)
+			}
+		}
+		if !found {
+			t.Error("Didn't find expected file in tarball")
+		}
+	})
+
+	// Check that the entrypoint of the image is configured to invoke our Go application
+	t.Run("check entrypoint", func(t *testing.T) {
+		cfg, err := img.ConfigFile()
+		if err != nil {
+			t.Errorf("ConfigFile() = %v", err)
+		}
+		entrypoint := cfg.Config.Entrypoint
+		if got, want := len(entrypoint), 1; got != want {
+			t.Errorf("len(entrypoint) = %v, want %v", got, want)
+		}
+
+		if got, want := entrypoint[0], appPath; got != want {
+			t.Errorf("entrypoint = %v, want %v", got, want)
+		}
+	})
+
+	// Check that the environment contains the KO_DATA_PATH environment variable.
+	t.Run("check KO_DATA_PATH env var", func(t *testing.T) {
+		cfg, err := img.ConfigFile()
+		if err != nil {
+			t.Errorf("ConfigFile() = %v", err)
+		}
+		found := false
+		for _, entry := range cfg.Config.Env {
+			if entry == "KO_DATA_PATH="+kodataRoot {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("Didn't find expected file in tarball.")
+		}
+	})
+
+	t.Run("check creation time", func(t *testing.T) {
+		cfg, err := img.ConfigFile()
+		if err != nil {
+			t.Errorf("ConfigFile() = %v", err)
+		}
+
+		actual := cfg.Created
+		if actual.Time != creationTime.Time {
+			t.Errorf("created = %v, want %v", actual, creationTime)
 		}
 	})
 }

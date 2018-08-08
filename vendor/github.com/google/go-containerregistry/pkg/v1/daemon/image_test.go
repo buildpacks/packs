@@ -26,7 +26,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
-var imagePath = "../tarball/test_image_1.tar"
+var imagePath = "../tarball/testdata/test_image_1.tar"
 
 type MockImageSaver struct {
 	path string
@@ -54,7 +54,13 @@ func TestImage(t *testing.T) {
 	}
 
 	runTest := func(buffered bool) {
-		daemonImage, err := Image(tag, &ReadOptions{Buffer: buffered})
+		var bufferedOption ImageOption
+		if buffered {
+			bufferedOption = WithBufferedOpener()
+		} else {
+			bufferedOption = WithUnbufferedOpener()
+		}
+		daemonImage, err := Image(tag, bufferedOption)
 		if err != nil {
 			t.Errorf("Error loading daemon image: %s", err)
 		}
