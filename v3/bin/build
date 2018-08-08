@@ -5,6 +5,7 @@ set -eo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")/..
 
 stack=$1
+lifecycle_ref=$2
 samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/master
 buildpack_dir=$(pwd)/images/detect/buildpacks
 nodejs_dir=$buildpack_dir/sh.packs.samples.buildpack.nodejs/latest
@@ -17,7 +18,7 @@ fi
 rm -rf "$buildpack_dir"
 mkdir -p "$nodejs_dir"
 
-if [[ "$(uname)" -eq "Linux" ]]; then
+if [[ $(uname) = Linux ]]; then
   curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 --wildcards 'buildpack-samples-*/nodejs-buildpack'
 else
   curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 'buildpack-samples-*/nodejs-buildpack'
@@ -31,8 +32,14 @@ echo 'groups = [{ repository = "packs/v3", buildpacks = ["sh.packs.samples.build
 
 docker pull "${stack}"
 
-docker build --build-arg "stack=${stack}" -t packs/v3:latest -f images/Dockerfile.base .
+if [[ -n $lifecycle_ref ]]; then
+  docker build --build-arg "stack=${stack}" --build-arg "lifecycle_ref=${lifecycle_ref}" -t packs/v3:latest -f images/Dockerfile.base .
+else
+  docker build --build-arg "stack=${stack}" -t packs/v3:latest -f images/Dockerfile.base .
+fi
 docker build -t packs/v3:detect images/detect
+docker build -t packs/v3:analyze images/analyze
 docker build -t packs/v3:build images/build
+docker build -t packs/v3:export images/export
 docker build -t packs/v3:run images/run
 
