@@ -1,4 +1,4 @@
-ARG go_version=1.10.1
+ARG go_version=1.10.3
 
 FROM golang:${go_version} as deps
 
