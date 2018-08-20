@@ -25,7 +25,7 @@ $ docker run --rm -v "$(pwd):/launch/app" -v "packs:/workspace" packs/v3:build
 To build the packs/v3 images yourself, you'll need Stephen's™️ YAML to JSON converter:
 
 ```
-$ go get sclevine/yj
+$ go get github.com/sclevine/yj
 $ cd $GOPATH/sclevine/yj
 $ dep ensure
 $ go install
