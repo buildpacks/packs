@@ -25,6 +25,7 @@ const (
 	EnvDetectInfoPath = "PACK_DETECT_INFO_PATH"
 
 	EnvStackName  = "PACK_STACK_NAME"
+	EnvStackTag   = "PACK_STACK_TAG"
 	EnvUseDaemon  = "PACK_USE_DAEMON"
 	EnvUseHelpers = "PACK_USE_HELPERS"
 )
@@ -59,6 +60,10 @@ func InputDetectInfoPath(path *string) {
 
 func InputStackName(name *string) {
 	flag.StringVar(name, "stack", os.Getenv(EnvStackName), "image repository containing stack")
+}
+
+func InputStackTag(name *string) {
+	flag.StringVar(name, "stack", os.Getenv(EnvStackTag), "tag name of the stack")
 }
 
 func InputUseDaemon(use *bool) {
