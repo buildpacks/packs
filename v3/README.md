@@ -2,22 +2,51 @@
 
 Execution of these images differs from the standard packs API.
 
-Optionally, you may want to create a Docker volume to share files across runs:
+## Usage
+
+Create your launch dir:
 
 ```
-$ docker volume create --name packs
+$ mkdir launch
+$ cp -R /path/to/your/app launch/app
+```
+
+Create a volume for the cache from step to step:
+
+```
+$ docker volume create --name packs_cache
+```
+
+Create a volume to pass TOML files from step to step:
+
+```
+$ docker volume create --name packs_ws
 ```
 
 Detect:
 
 ```
-$ docker run --rm -v "$(pwd):/launch/app" -v "packs:/workspace" packs/v3:detect
+$ docker run --rm -v "$(pwd)/launch:/launch" -v "packs_ws:/workspace" packs/v3:detect
 ```
 
 Build:
 
 ```
-$ docker run --rm -v "$(pwd):/launch/app" -v "packs:/workspace" packs/v3:build
+$ docker run --rm -v "$(pwd)/launch:/launch" -v "packs_cache:/cache" -v "packs_ws:/workspace" packs/v3:build
+```
+
+Run:
+
+```
+$ docker run --rm -P -v "$(pwd)/launch:/launch" -v "packs_ws:/workspace" \
+  -e PACK_STACK_NAME="heroku/heroku" -e PACK_STACK_TAG="18" \
+  packs/v3:run
+```
+
+Export:
+
+```
+$ docker run --rm -v "$(pwd)/launch:/launch" packs/v3:export
 ```
 
 ## Building the images
