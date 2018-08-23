@@ -18,7 +18,7 @@ var (
 	dropletPath  string
 	metadataPath string
 	repoName     string
-	stackName    string
+	runImage     string
 	useDaemon    bool
 	useHelpers   bool
 )
@@ -26,7 +26,7 @@ var (
 func init() {
 	packs.InputDropletPath(&dropletPath)
 	packs.InputMetadataPath(&metadataPath)
-	packs.InputStackName(&stackName)
+	packs.InputRunImage(&runImage)
 	packs.InputUseDaemon(&useDaemon)
 	packs.InputUseHelpers(&useHelpers)
 }
@@ -34,7 +34,7 @@ func init() {
 func main() {
 	flag.Parse()
 	repoName = flag.Arg(0)
-	if flag.NArg() != 1 || repoName == "" || stackName == "" || (metadataPath != "" && dropletPath == "") {
+	if flag.NArg() != 1 || repoName == "" || runImage == "" || (metadataPath != "" && dropletPath == "") {
 		packs.Exit(packs.FailCode(packs.CodeInvalidArgs, "parse arguments"))
 	}
 	packs.Exit(export())
@@ -42,7 +42,7 @@ func main() {
 
 func export() error {
 	if useHelpers {
-		if err := img.SetupCredHelpers(repoName, stackName); err != nil {
+		if err := img.SetupCredHelpers(repoName, runImage); err != nil {
 			return packs.FailErr(err, "setup credential helpers")
 		}
 	}
@@ -56,13 +56,13 @@ func export() error {
 		return packs.FailErr(err, "access", repoName)
 	}
 
-	stackStore, err := img.NewRegistry(stackName)
+	runimageStore, err := img.NewRegistry(runImage)
 	if err != nil {
-		return packs.FailErr(err, "access", stackName)
+		return packs.FailErr(err, "access", runImage)
 	}
-	stackImage, err := stackStore.Image()
+	runimageImage, err := runimageStore.Image()
 	if err != nil {
-		return packs.FailErr(err, "get image for", stackName)
+		return packs.FailErr(err, "get image for", runImage)
 	}
 
 	var (
@@ -82,35 +82,35 @@ func export() error {
 			return packs.FailErr(err, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
-		repoImage, _, err = img.Append(stackImage, layer)
+		repoImage, _, err = img.Append(runimageImage, layer)
 		if err != nil {
-			return packs.FailErr(err, "append droplet to", stackName)
+			return packs.FailErr(err, "append droplet to", runImage)
 		}
 	} else {
 		repoImage, err = repoStore.Image()
 		if err != nil {
 			return packs.FailErr(err, "get image for", repoName)
 		}
-		repoImage, err = img.Rebase(repoImage, stackImage, func(labels map[string]string) (v1.Image, error) {
+		repoImage, err = img.Rebase(repoImage, runimageImage, func(labels map[string]string) (v1.Image, error) {
 			if err := json.Unmarshal([]byte(labels[packs.BuildLabel]), &metadata); err != nil {
 				return nil, err
 			}
-			oldStore, err := img.NewRegistry(metadata.Stack.Name + "@" + metadata.Stack.SHA)
+			oldStore, err := img.NewRegistry(metadata.RunImage.Name + "@" + metadata.RunImage.SHA)
 			if err != nil {
 				return nil, err
 			}
 			return oldStore.Image()
 		})
 		if err != nil {
-			return packs.FailErr(err, "rebase", repoName, "on", stackName)
+			return packs.FailErr(err, "rebase", repoName, "on", runImage)
 		}
 	}
-	stackDigest, err := stackImage.Digest()
+	runimageDigest, err := runimageImage.Digest()
 	if err != nil {
-		return packs.FailErr(err, "get digest for", stackName)
+		return packs.FailErr(err, "get digest for", runImage)
 	}
-	metadata.Stack.Name = stackStore.Ref().Context().String()
-	metadata.Stack.SHA = stackDigest.String()
+	metadata.RunImage.Name = runimageStore.Ref().Context().String()
+	metadata.RunImage.SHA = runimageDigest.String()
 	buildJSON, err := json.Marshal(metadata)
 	if err != nil {
 		return packs.FailErr(err, "get encode metadata for", repoName)
