@@ -12,7 +12,7 @@ ARG stack
 
 COPY --from=helpers /go/bin /usr/local/bin
 
-ENV PACK_RUN_IMAGE packs/${stack}:run
+ENV PACK_STACK_NAME packs/${stack}:run
 ENV PACK_USE_HELPERS true
 
 # TODO: remove

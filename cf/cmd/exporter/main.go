@@ -18,7 +18,7 @@ var (
 	dropletPath  string
 	metadataPath string
 	repoName     string
-	runImage     string
+	stackName    string
 	useDaemon    bool
 	useHelpers   bool
 )
@@ -26,7 +26,7 @@ var (
 func init() {
 	packs.InputDropletPath(&dropletPath)
 	packs.InputMetadataPath(&metadataPath)
-	packs.InputRunImage(&runImage)
+	packs.InputStackName(&stackName)
 	packs.InputUseDaemon(&useDaemon)
 	packs.InputUseHelpers(&useHelpers)
 }
@@ -34,7 +34,7 @@ func init() {
 func main() {
 	flag.Parse()
 	repoName = flag.Arg(0)
-	if flag.NArg() != 1 || repoName == "" || runImage == "" || (metadataPath != "" && dropletPath == "") {
+	if flag.NArg() != 1 || repoName == "" || stackName == "" || (metadataPath != "" && dropletPath == "") {
 		packs.Exit(packs.FailCode(packs.CodeInvalidArgs, "parse arguments"))
 	}
 	packs.Exit(export())
@@ -42,7 +42,7 @@ func main() {
 
 func export() error {
 	if useHelpers {
-		if err := img.SetupCredHelpers(repoName, runImage); err != nil {
+		if err := img.SetupCredHelpers(repoName, stackName); err != nil {
 			return packs.FailErr(err, "setup credential helpers")
 		}
 	}
@@ -58,11 +58,11 @@ func export() error {
 
 	runimageStore, err := img.NewRegistry(runImage)
 	if err != nil {
-		return packs.FailErr(err, "access", runImage)
+		return packs.FailErr(err, "access", stackName)
 	}
 	runimageImage, err := runimageStore.Image()
 	if err != nil {
-		return packs.FailErr(err, "get image for", runImage)
+		return packs.FailErr(err, "get image for", stackName)
 	}
 
 	var (
@@ -84,7 +84,7 @@ func export() error {
 		defer os.Remove(layer)
 		repoImage, _, err = img.Append(runimageImage, layer)
 		if err != nil {
-			return packs.FailErr(err, "append droplet to", runImage)
+			return packs.FailErr(err, "append droplet to", stackName)
 		}
 	} else {
 		repoImage, err = repoStore.Image()
@@ -102,12 +102,12 @@ func export() error {
 			return oldStore.Image()
 		})
 		if err != nil {
-			return packs.FailErr(err, "rebase", repoName, "on", runImage)
+			return packs.FailErr(err, "rebase", repoName, "on", stackName)
 		}
 	}
 	runimageDigest, err := runimageImage.Digest()
 	if err != nil {
-		return packs.FailErr(err, "get digest for", runImage)
+		return packs.FailErr(err, "get digest for", stackName)
 	}
 	metadata.RunImage.Name = runimageStore.Ref().Context().String()
 	metadata.RunImage.SHA = runimageDigest.String()
