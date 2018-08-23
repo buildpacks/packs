@@ -38,6 +38,8 @@ else
   docker build --build-arg "stack=${stack}" -t packs/v3:latest -f images/Dockerfile.base .
 fi
 docker build -t packs/v3:detect images/detect
+docker build -t packs/v3:analyze images/analyze
 docker build -t packs/v3:build images/build
+docker build -t packs/v3:export images/export
 docker build -t packs/v3:run images/run
 
