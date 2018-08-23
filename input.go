@@ -25,6 +25,7 @@ const (
 	EnvDetectInfoPath = "PACK_DETECT_INFO_PATH"
 
 	EnvRunImage   = "PACK_RUN_IMAGE"
+	EnvStackName  = "PACK_STACK_NAME"
 	EnvUseDaemon  = "PACK_USE_DAEMON"
 	EnvUseHelpers = "PACK_USE_HELPERS"
 )
@@ -57,8 +58,12 @@ func InputDetectInfoPath(path *string) {
 	flag.StringVar(path, "info", os.Getenv(EnvDetectInfoPath), "file containing detection info")
 }
 
-func InputRunImage(name *string) {
-	flag.StringVar(name, "runImage", os.Getenv(EnvRunImage), "image repository containing stack")
+func InputRunImage(image *string) {
+	flag.StringVar(image, "run-image", os.Getenv(EnvRunImage), "image repository containing run image")
+}
+
+func InputStackName(image *string) {
+	flag.StringVar(image, "stack", os.Getenv(EnvStackName), "image repository containing stack image")
 }
 
 func InputUseDaemon(use *bool) {
