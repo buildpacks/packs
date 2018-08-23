@@ -6,7 +6,7 @@ cd $(dirname "${BASH_SOURCE[0]}")/..
 
 stack=$1
 lifecycle_ref=$2
-samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/15c90f28a6780e2efd171ab1eecd6aa6eeeb8d7a
+samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/master
 buildpacks_dir=$(pwd)/images/detect/buildpacks
 
 if [[ -z $stack ]]; then
@@ -44,6 +44,7 @@ cat << TOML >> "$buildpacks_dir/order.toml"
   [[groups.buildpacks]]
     id = "sh.packs.samples.buildpack.${buildpack}"
     version = "latest"
+    optional = true
 TOML
 done
 
