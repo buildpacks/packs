@@ -56,11 +56,11 @@ func export() error {
 		return packs.FailErr(err, "access", repoName)
 	}
 
-	runimageStore, err := img.NewRegistry(runImage)
+	stackStore, err := img.NewRegistry(stackName)
 	if err != nil {
 		return packs.FailErr(err, "access", stackName)
 	}
-	runimageImage, err := runimageStore.Image()
+	stackImage, err := stackStore.Image()
 	if err != nil {
 		return packs.FailErr(err, "get image for", stackName)
 	}
@@ -82,7 +82,7 @@ func export() error {
 			return packs.FailErr(err, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
-		repoImage, _, err = img.Append(runimageImage, layer)
+		repoImage, _, err = img.Append(stackImage, layer)
 		if err != nil {
 			return packs.FailErr(err, "append droplet to", stackName)
 		}
@@ -91,7 +91,7 @@ func export() error {
 		if err != nil {
 			return packs.FailErr(err, "get image for", repoName)
 		}
-		repoImage, err = img.Rebase(repoImage, runimageImage, func(labels map[string]string) (v1.Image, error) {
+		repoImage, err = img.Rebase(repoImage, stackImage, func(labels map[string]string) (v1.Image, error) {
 			if err := json.Unmarshal([]byte(labels[packs.BuildLabel]), &metadata); err != nil {
 				return nil, err
 			}
@@ -105,12 +105,12 @@ func export() error {
 			return packs.FailErr(err, "rebase", repoName, "on", stackName)
 		}
 	}
-	runimageDigest, err := runimageImage.Digest()
+	stackDigest, err := stackImage.Digest()
 	if err != nil {
 		return packs.FailErr(err, "get digest for", stackName)
 	}
-	metadata.RunImage.Name = runimageStore.Ref().Context().String()
-	metadata.RunImage.SHA = runimageDigest.String()
+	metadata.RunImage.Name = stackStore.Ref().Context().String()
+	metadata.RunImage.SHA = stackDigest.String()
 	buildJSON, err := json.Marshal(metadata)
 	if err != nil {
 		return packs.FailErr(err, "get encode metadata for", repoName)
