@@ -56,11 +56,11 @@ func export() error {
 		return packs.FailErr(err, "access", repoName)
 	}
 
-	stackStore, err := img.NewRegistry(runImage)
+	runimageStore, err := img.NewRegistry(runImage)
 	if err != nil {
 		return packs.FailErr(err, "access", runImage)
 	}
-	stackImage, err := stackStore.Image()
+	runimageImage, err := runimageStore.Image()
 	if err != nil {
 		return packs.FailErr(err, "get image for", runImage)
 	}
@@ -82,7 +82,7 @@ func export() error {
 			return packs.FailErr(err, "transform", dropletPath, "into layer")
 		}
 		defer os.Remove(layer)
-		repoImage, _, err = img.Append(stackImage, layer)
+		repoImage, _, err = img.Append(runimageImage, layer)
 		if err != nil {
 			return packs.FailErr(err, "append droplet to", runImage)
 		}
@@ -91,11 +91,11 @@ func export() error {
 		if err != nil {
 			return packs.FailErr(err, "get image for", repoName)
 		}
-		repoImage, err = img.Rebase(repoImage, stackImage, func(labels map[string]string) (v1.Image, error) {
+		repoImage, err = img.Rebase(repoImage, runimageImage, func(labels map[string]string) (v1.Image, error) {
 			if err := json.Unmarshal([]byte(labels[packs.BuildLabel]), &metadata); err != nil {
 				return nil, err
 			}
-			oldStore, err := img.NewRegistry(metadata.Stack.Name + "@" + metadata.Stack.SHA)
+			oldStore, err := img.NewRegistry(metadata.RunImage.Name + "@" + metadata.RunImage.SHA)
 			if err != nil {
 				return nil, err
 			}
@@ -105,12 +105,12 @@ func export() error {
 			return packs.FailErr(err, "rebase", repoName, "on", runImage)
 		}
 	}
-	stackDigest, err := stackImage.Digest()
+	runimageDigest, err := runimageImage.Digest()
 	if err != nil {
 		return packs.FailErr(err, "get digest for", runImage)
 	}
-	metadata.Stack.Name = stackStore.Ref().Context().String()
-	metadata.Stack.SHA = stackDigest.String()
+	metadata.RunImage.Name = runimageStore.Ref().Context().String()
+	metadata.RunImage.SHA = runimageDigest.String()
 	buildJSON, err := json.Marshal(metadata)
 	if err != nil {
 		return packs.FailErr(err, "get encode metadata for", repoName)
