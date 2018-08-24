@@ -1,4 +1,6 @@
-FROM packs/v3:detect
+ARG stack=packs/v3
+
+FROM ${stack}:detect
 
 USER root
 

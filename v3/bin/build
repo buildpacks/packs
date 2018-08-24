@@ -2,17 +2,36 @@
 
 set -eo pipefail
 
+usage() { echo "Usage: $0 [-b <base image; ubuntu:18.04>] [-l <lifecycle git ref>] [-s <image stack name; packs/v3>]" 1>&2; exit 1; }
+base=ubuntu:18.04
+lifecycle_ref=''
+stack=packs/v3
+
+while getopts ":b:l:s:" o; do
+  case "${o}" in
+    b)
+      base=${OPTARG}
+      [[ -n $stack ]] || usage
+      ;;
+    l)
+      lifecycle_ref=${OPTARG}
+      if [[ -n $lifecycle_ref && -d $lifecycle_ref ]]; then
+        lifecycle_ref=$(cd "$lifecycle_ref" && git rev-list HEAD -1)
+      fi
+      ;;
+    s)
+      stack=${OPTARG}
+      [[ -n $stack ]] || usage
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
 cd $(dirname "${BASH_SOURCE[0]}")/..
-
-stack=$1
-lifecycle_ref=$2
-samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/master
+samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/nodejs-detect
 buildpacks_dir=$(pwd)/images/detect/buildpacks
-
-if [[ -z $stack ]]; then
-  >&2 echo "Stack not specified."
-  exit 1
-fi
 
 rm -rf "$buildpacks_dir"
 mkdir -p "$buildpacks_dir"
@@ -23,10 +42,10 @@ curl -sSL "$samples_tgz" | tar -xzf - -C "$buildpacks_dir" --strip-components=1 
 for buildpack in "nodejs" "java"; do
   echo "--> Adding buildpack: ${buildpack}"
   bp_dir=${buildpacks_dir}/sh.packs.samples.buildpack.${buildpack}
-  mkdir -p ${bp_dir}
+  mkdir -p "${bp_dir}"
 
   latest_dir=${bp_dir}/latest
-  mv ${buildpacks_dir}/${buildpack}-buildpack ${latest_dir}
+  mv "${buildpacks_dir}/${buildpack}-buildpack" "${latest_dir}"
 
   version_dir=$(dirname "$latest_dir")/$(cat "$latest_dir/buildpack.toml" | yj -t | jq -r .version)
   mv "$latest_dir" "$version_dir"
@@ -43,13 +62,19 @@ cat << TOML >> "$buildpacks_dir/order.toml"
 TOML
 done
 
-docker pull "${stack}"
+docker pull "${base}"
 
-base_args="--build-arg stack=${stack} ${lifecycle_ref:+--build-arg lifecycle_ref=${lifecycle_ref}}"
-docker build $base_args -t packs/v3:latest -f images/base.Dockerfile .
-docker build -t packs/v3:detect images/detect
-docker build -t packs/v3:analyze images/analyze
-docker build -t packs/v3:build images/build
-docker build -t packs/v3:export images/export
-docker build -t packs/v3:run images/run
+base_args="--build-arg base=${base} ${lifecycle_ref:+--build-arg lifecycle_ref=${lifecycle_ref}}"
+common_args="--build-arg stack=${stack}"
+echo docker build $base_args -t "${stack}:latest" -f images/base.Dockerfile .
+docker build $base_args -t "${stack}:latest" -f images/base.Dockerfile .
+docker build $common_args -t "${stack}:detect" images/detect
+docker build $common_args -t "${stack}:analyze" images/analyze
+docker build $common_args -t "${stack}:build" images/build
+docker build $common_args -t "${stack}:export" images/export
+docker build $common_args -t "${stack}:run" images/run
 
+echo "To publish these images:"
+for tag in "detect" "analyze" "build" "export" "run"; do
+  echo "  docker push \"${stack}:${tag}\""
+done

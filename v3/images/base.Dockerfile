@@ -1,4 +1,4 @@
-ARG stack
+ARG base=ubuntu:18.04
 ARG go_version=1.10.3
 
 FROM golang:${go_version} as builder
@@ -13,7 +13,7 @@ RUN mv /go/bin /packs && mkdir /go/bin
 
 RUN go get github.com/sclevine/yj
 
-FROM ${stack}
+FROM ${base}
 ARG jq_url=http://stedolan.github.io/jq/download/linux64/jq
 
 RUN apt-get update && \
