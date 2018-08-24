@@ -1,4 +1,6 @@
-FROM packs/v3
+ARG stack=packs/v3
+
+FROM ${stack}
 
 EXPOSE 8080
 
