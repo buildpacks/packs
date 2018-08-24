@@ -25,7 +25,8 @@ fi
 
 cat << TOML > "$buildpacks_dir/order.toml"
 [[groups]]
-  repository = "packs/v3"
+  build-image = "packs/v3:build"
+  run-image = "packs/v3:run"
 TOML
 
 for buildpack in "nodejs" "java"; do
