@@ -2,7 +2,7 @@ ARG stack
 ARG go_version=1.10.3
 
 FROM golang:${go_version} as builder
-ARG lifecycle_ref=d53d7b184559f8394da18ba6b502c779ec3d29d7
+ARG lifecycle_ref=1e60998166197ab9697980edc2dc5c9d75628689
 ARG lifecycle_repo=github.com/buildpack/lifecycle
 
 WORKDIR /go/src/${lifecycle_repo}
