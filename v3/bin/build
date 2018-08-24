@@ -20,12 +20,6 @@ mkdir -p "$buildpacks_dir"
 tar_compat=$(if tar --version | grep -q "GNU tar" ; then echo '--wildcards'; fi)
 curl -sSL "$samples_tgz" | tar -xzf - -C "$buildpacks_dir" --strip-components=1 ${tar_compat} 'buildpack-samples-*'
 
-cat << TOML > "$buildpacks_dir/order.toml"
-[[groups]]
-  build-image = "packs/v3:build"
-  run-image = "packs/v3:run"
-TOML
-
 for buildpack in "nodejs" "java"; do
   echo "--> Adding buildpack: ${buildpack}"
   bp_dir=${buildpacks_dir}/sh.packs.samples.buildpack.${buildpack}
@@ -39,10 +33,13 @@ for buildpack in "nodejs" "java"; do
   ln -s "$(basename "$version_dir")" "$latest_dir"
 
 cat << TOML >> "$buildpacks_dir/order.toml"
-  [[groups.buildpacks]]
-    id = "sh.packs.samples.buildpack.${buildpack}"
-    version = "latest"
-    optional = true
+[[groups]]
+  repository = "packs/v3"
+  build-image = "packs/v3:build"
+  run-image = "packs/v3:run"
+  buildpacks = [
+    { id = "sh.packs.samples.buildpack.${buildpack}", version = "latest" }
+  ]
 TOML
 done
 
