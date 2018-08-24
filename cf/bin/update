@@ -15,7 +15,7 @@ while read row; do
   name=$(echo "${row}" | jq -r '.name')
   uri_name=$(echo "${name}" | tr _ -)
   version=$(curl -fsSL https://api.github.com/repos/cloudfoundry/${uri_name}/releases/latest|jq -r .tag_name|tr -d v)
-  uri="https://github.com/cloudfoundry/${uri_name}/releases/download/v${version}/${uri_name}-v${version}.zip"
+  uri="https://github.com/cloudfoundry/${uri_name}/releases/download/v${version}/${uri_name}-${stack}-v${version}.zip"
   out=$(echo "${out}" | jq ". + [{\"name\": \"${name}\", \"uri\": \"${uri}\"}]")
 done < <(jq -c '.[]' "${stack}.json")
 

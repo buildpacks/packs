@@ -51,11 +51,8 @@ done
 
 docker pull "${stack}"
 
-if [[ -n $lifecycle_ref ]]; then
-  docker build --build-arg "stack=${stack}" --build-arg "lifecycle_ref=${lifecycle_ref}" -t packs/v3:latest -f images/Dockerfile.base .
-else
-  docker build --build-arg "stack=${stack}" -t packs/v3:latest -f images/Dockerfile.base .
-fi
+base_args="--build-arg stack=${stack} ${lifecycle_ref:+--build-arg lifecycle_ref=${lifecycle_ref}}"
+docker build $base_args -t packs/v3:latest -f images/base.Dockerfile .
 docker build -t packs/v3:detect images/detect
 docker build -t packs/v3:analyze images/analyze
 docker build -t packs/v3:build images/build
