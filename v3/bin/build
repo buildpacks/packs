@@ -17,11 +17,8 @@ fi
 rm -rf "$buildpacks_dir"
 mkdir -p "$buildpacks_dir"
 
-if tar --version | grep -q "GNU tar"; then
-  curl -sSL "$samples_tgz" | tar -xzf - -C "$buildpacks_dir" --strip-components=1 --wildcards "buildpack-samples-*"
-else
-  curl -sSL "$samples_tgz" | tar -xzf - -C "$buildpacks_dir" --strip-components=1 "buildpack-samples-*"
-fi
+tar_compat=$(if tar --version | grep -q "GNU tar" ; then echo '--wildcards'; fi)
+curl -sSL "$samples_tgz" | tar -xzf - -C "$buildpacks_dir" --strip-components=1 ${tar_compat} 'buildpack-samples-*'
 
 cat << TOML > "$buildpacks_dir/order.toml"
 [[groups]]
