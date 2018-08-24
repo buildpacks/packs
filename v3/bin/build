@@ -18,11 +18,8 @@ fi
 rm -rf "$buildpack_dir"
 mkdir -p "$nodejs_dir"
 
-if tar --version | grep -q "GNU tar"; then
-  curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 --wildcards 'buildpack-samples-*/nodejs-buildpack'
-else
-  curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 'buildpack-samples-*/nodejs-buildpack'
-fi
+tar_compat=$(if tar --version | grep -q "GNU tar" ; then echo '--wildcards'; fi)
+curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 $tar_compat 'buildpack-samples-*/nodejs-buildpack'
 
 version_dir=$(dirname "$nodejs_dir")/$(cat "$nodejs_dir/buildpack.toml" | yj -t | jq -r .version)
 mv "$nodejs_dir" "$version_dir"
@@ -32,11 +29,8 @@ echo 'groups = [{ repository = "packs/v3", buildpacks = [{ id = "sh.packs.sample
 
 docker pull "${stack}"
 
-if [[ -n $lifecycle_ref ]]; then
-  docker build --build-arg "stack=${stack}" --build-arg "lifecycle_ref=${lifecycle_ref}" -t packs/v3:latest -f images/Dockerfile.base .
-else
-  docker build --build-arg "stack=${stack}" -t packs/v3:latest -f images/Dockerfile.base .
-fi
+base_args="--build-arg stack=${stack} ${lifecycle_ref:+--build-arg lifecycle_ref=${lifecycle_ref}}"
+docker build $base_args -t packs/v3:latest -f images/base.Dockerfile .
 docker build -t packs/v3:detect images/detect
 docker build -t packs/v3:analyze images/analyze
 docker build -t packs/v3:build images/build
