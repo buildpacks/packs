@@ -7,25 +7,41 @@ cd $(dirname "${BASH_SOURCE[0]}")/..
 stack=$1
 lifecycle_ref=$2
 samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/master
-buildpack_dir=$(pwd)/images/detect/buildpacks
-nodejs_dir=$buildpack_dir/sh.packs.samples.buildpack.nodejs/latest
+buildpacks_dir=$(pwd)/images/detect/buildpacks
 
 if [[ -z $stack ]]; then
   >&2 echo "Stack not specified."
   exit 1
 fi
 
-rm -rf "$buildpack_dir"
-mkdir -p "$nodejs_dir"
+rm -rf "$buildpacks_dir"
+mkdir -p "$buildpacks_dir"
 
 tar_compat=$(if tar --version | grep -q "GNU tar" ; then echo '--wildcards'; fi)
-curl -sSL "$samples_tgz" | tar -xzf - -C "$nodejs_dir" --strip-components=2 $tar_compat 'buildpack-samples-*/nodejs-buildpack'
+curl -sSL "$samples_tgz" | tar -xzf - -C "$buildpacks_dir" --strip-components=1 ${tar_compat} 'buildpack-samples-*'
 
-version_dir=$(dirname "$nodejs_dir")/$(cat "$nodejs_dir/buildpack.toml" | yj -t | jq -r .version)
-mv "$nodejs_dir" "$version_dir"
-ln -s "$(basename "$version_dir")" "$nodejs_dir"
+for buildpack in "nodejs" "java"; do
+  echo "--> Adding buildpack: ${buildpack}"
+  bp_dir=${buildpacks_dir}/sh.packs.samples.buildpack.${buildpack}
+  mkdir -p ${bp_dir}
 
-echo 'groups = [{ repository = "packs/v3", build-image = "packs/v3:build", run-image = "packs/v3:run", buildpacks = [{ id = "sh.packs.samples.buildpack.nodejs", version = "latest" }] }]' > "$buildpack_dir/order.toml"
+  latest_dir=${bp_dir}/latest
+  mv ${buildpacks_dir}/${buildpack}-buildpack ${latest_dir}
+
+  version_dir=$(dirname "$latest_dir")/$(cat "$latest_dir/buildpack.toml" | yj -t | jq -r .version)
+  mv "$latest_dir" "$version_dir"
+  ln -s "$(basename "$version_dir")" "$latest_dir"
+
+cat << TOML >> "$buildpacks_dir/order.toml"
+[[groups]]
+  repository = "packs/v3"
+  build-image = "packs/v3:build"
+  run-image = "packs/v3:run"
+  buildpacks = [
+    { id = "sh.packs.samples.buildpack.${buildpack}", version = "latest" }
+  ]
+TOML
+done
 
 docker pull "${stack}"
 
