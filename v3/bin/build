@@ -25,7 +25,7 @@ version_dir=$(dirname "$nodejs_dir")/$(cat "$nodejs_dir/buildpack.toml" | yj -t 
 mv "$nodejs_dir" "$version_dir"
 ln -s "$(basename "$version_dir")" "$nodejs_dir"
 
-echo 'groups = [{ repository = "packs/v3", buildpacks = [{ id = "sh.packs.samples.buildpack.nodejs", version = "latest" }] }]' > "$buildpack_dir/order.toml"
+echo 'groups = [{ repository = "packs/v3", build-image = "packs/v3:build", run-image = "packs/v3:run", buildpacks = [{ id = "sh.packs.samples.buildpack.nodejs", version = "latest" }] }]' > "$buildpack_dir/order.toml"
 
 docker pull "${stack}"
 
