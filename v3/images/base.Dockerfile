@@ -17,7 +17,7 @@ FROM ${base}
 ARG jq_url=http://stedolan.github.io/jq/download/linux64/jq
 
 RUN apt-get update && \
-  apt-get install -y wget xz-utils ca-certificates && \
+  apt-get install -y curl wget xz-utils ca-certificates && \
   rm -rf /var/lib/apt/lists/*
 
 RUN useradd -u 1000 -mU -s /bin/bash packs

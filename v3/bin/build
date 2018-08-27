@@ -75,6 +75,6 @@ docker build $common_args -t "${stack}:export" images/export
 docker build $common_args -t "${stack}:run" images/run
 
 echo "To publish these images:"
-for tag in "detect" "analyze" "build" "export" "run"; do
+for tag in "latest" "detect" "analyze" "build" "export" "run"; do
   echo "  docker push \"${stack}:${tag}\""
 done
