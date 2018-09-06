@@ -5,9 +5,10 @@ set -eo pipefail
 usage() { echo "Usage: $0 [-b <base image; ubuntu:18.04>] [-l <lifecycle git ref>] [-s <image stack name; packs/v3>]" 1>&2; exit 1; }
 base=ubuntu:18.04
 lifecycle_ref=''
+samples_ref="master"
 stack=packs/v3
 
-while getopts ":b:l:s:" o; do
+while getopts ":b:l:s:d:" o; do
   case "${o}" in
     b)
       base=${OPTARG}
@@ -23,6 +24,10 @@ while getopts ":b:l:s:" o; do
       stack=${OPTARG}
       [[ -n $stack ]] || usage
       ;;
+    d)
+      samples_ref=${OPTARG}
+      [[ -n $samples_ref ]] || usage
+      ;;
     *)
       usage
       ;;
@@ -30,7 +35,7 @@ while getopts ":b:l:s:" o; do
 done
 
 cd $(dirname "${BASH_SOURCE[0]}")/..
-samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/nodejs-detect
+samples_tgz=https://api.github.com/repos/buildpack/samples/tarball/$samples_ref
 buildpacks_dir=$(pwd)/images/detect/buildpacks
 
 rm -rf "$buildpacks_dir"
