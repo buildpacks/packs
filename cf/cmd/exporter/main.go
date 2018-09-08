@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1"
 
+	"github.com/buildpack/lifecycle/img"
 	"github.com/buildpack/packs"
 	"github.com/buildpack/packs/cf"
-	"github.com/buildpack/packs/img"
 )
 
 var (
