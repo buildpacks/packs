@@ -71,8 +71,3 @@ func Run(name string, arg ...string) (string, error) {
 	}
 	return strings.TrimSpace(stdout.String()), nil
 }
-
-func BoolEnv(k string) bool {
-	v := os.Getenv(k)
-	return v == "true" || v == "1"
-}

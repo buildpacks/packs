@@ -20,7 +20,7 @@ RUN git clone --single-branch "https://${diego_repo}" . && \
     src/gopkg.in/yaml.v2
 RUN GOPATH=/diego CGO_ENABLED=0 go install -a -installsuffix static "${bal_repo}/..."
 
-FROM golang:$go_version as packs
+FROM golang:1.11.0 as packs
 ARG packs_repo=github.com/buildpack/packs
 
 COPY . "src/${packs_repo}"
