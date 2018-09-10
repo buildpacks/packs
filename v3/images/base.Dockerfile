@@ -14,7 +14,7 @@ RUN mv /go/bin /packs && mkdir /go/bin
 RUN go get github.com/sclevine/yj
 
 FROM ${base}
-ARG jq_url=http://stedolan.github.io/jq/download/linux64/jq
+ARG jq_url=https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
 
 RUN apt-get update && \
   apt-get install -y curl wget xz-utils ca-certificates && \
